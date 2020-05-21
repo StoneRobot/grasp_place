@@ -57,6 +57,11 @@ find_package(catkin REQUIRED COMPONENTS
 #   Service2.srv
 # )
 
+add_service_files(
+    FILES
+    rb_ArrayAndBool.srv
+  )
+
 ## Generate actions in the 'action' folder
 # add_action_files(
 #   FILES

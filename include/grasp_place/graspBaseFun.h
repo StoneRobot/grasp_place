@@ -7,11 +7,12 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <std_srvs/Empty.h>
 #include <std_msgs/Int8MultiArray.h>
+#include <std_msgs/Int8.h>
 
 
-#include "rubik_cube_solve/rubik_cube_solve_cmd.h"
-#include "rubik_cube_solve/end_effector_motion.h"
-#include "rubik_cube_solve/recordPoseStamped.h"
+// #include "rubik_cube_solve/rubik_cube_solve_cmd.h"
+// #include "rubik_cube_solve/end_effector_motion.h"
+// #include "rubik_cube_solve/recordPoseStamped.h"
 #include "hirop_msgs/openGripper.h"
 #include "hirop_msgs/closeGripper.h"
 #include "cubeParse/TakePhoto.h"
@@ -25,7 +26,7 @@
 #include "hirop_msgs/SetGenActuator.h"
 #include "hirop_msgs/ObjectArray.h"
 #include "hirop_msgs/detection.h"
-#include "grasp_place/rb_ArrayAndBool.h"
+#include "rb_srvs/rb_ArrayAndBool.h"
 
 #include <vector>
 #include <iostream>
@@ -41,13 +42,14 @@ struct graspBaseFun
     int pickObject;
     // 0 从货架得到桌子
     // 1 从桌子到货架
-    int pick_mode;
+    int pickMode;
 };
 
 
 class GraspPlace
 {
-    GraspPlace(ros::NodeHandle n, moveit::planning_interface::MoveGroupInterface& group0, moveit::planning_interface::MoveGroupInterface& group1);
+public:
+    GraspPlace(ros::NodeHandle nodehandle, moveit::planning_interface::MoveGroupInterface& group0, moveit::planning_interface::MoveGroupInterface& group1);
 
     void rmObject();
     void showObject(geometry_msgs::Pose pose);
@@ -65,11 +67,28 @@ class GraspPlace
                                                                 moveit::planning_interface::MoveGroupInterface::Plan& my_plan);
 
     moveit::planning_interface::MoveItErrorCode loop_move(moveit::planning_interface::MoveGroupInterface& move_group);
-    void objectCallback(const hirop_msgs::ObjectArray::ConstPtr& msg);
-    void getPickDataCallBack(grasp_place::rb_ArrayAndBool::Request& req, grasp_place::rb_ArrayAndBool::Response& rep);
-    void detectionObject(int objectNum);
+    bool detectionObject(int objectNum);
+    void pick(geometry_msgs::PoseStamped pose);
+    void place(); 
+
+    bool loadPose(std::vector<std::vector<std::string> > filePathParam, std::vector<std::vector<geometry_msgs::PoseStamped> > pose);
+
+
+    void preprocessingPlacePose();
+    void calibration(std::vector<std::vector<geometry_msgs::PoseStamped> > pose, std::vector<std::vector<std::string> > poseName, std::string folder, bool isNowHavePoseFile);
+    void calibrationDetection(bool isNowHavePoseFile);
+    void calibrationPlace(bool isNowHavePoseFile);
 
 private:
+    bool writePoseOnceFile(const std::string& name, const geometry_msgs::PoseStamped& pose);
+    bool addData(geometry_msgs::PoseStamped& pose, YAML::Node node);
+    bool recordPose(int robotNum, std::string name, bool isJointSpace, std::string folder);
+
+    void objectCallBack(const hirop_msgs::ObjectArray::ConstPtr& msg);
+    // 0 爲檢測, 1 爲放置, 2, 3同是, 只是之前沒有點位文件, 或不用點位文件.
+    void calibrationCallBack(const std_msgs::Int8::ConstPtr& msg);
+    bool getPickDataCallBack(rb_srvs::rb_ArrayAndBool::Request& req, rb_srvs::rb_ArrayAndBool::Response& rep);
+
     ros::NodeHandle nh;
     moveit::planning_interface::MoveGroupInterface& move_group0;
     moveit::planning_interface::MoveGroupInterface& move_group1;
@@ -85,9 +104,19 @@ private:
     ros::ServiceServer getPickData;
     ros::ServiceClient detection_client;
     ros::Subscriber pose_sub;
+    ros::Subscriber calibrationSub;
     ros::Publisher Object_pub;
+
     graspBaseFun pickData;
     const double prepare_some_distance = 0.08;
-    const std::vector<std::string> pickObjectName={"milk_shelf"};
-    std::vector<geo>
+    std::vector<std::string> pickObjectName={"milk_shelf"};
+
+    std::vector<std::vector<std::string> > detectionPosesName = {{"detect0ShelfTop", "detect0ShelfBottom", "detect0table"},
+                                                    {"detect1ShelfTop", "detect1ShelfBottom", "detect1table"}};
+
+    std::vector<std::vector<std::string> > placePosesName = {{"robot0shelf0", "robot0shelf1", "robot0table0", "robot0table1"},
+                                                    {"robot1shelf0", "robot1shelf1", "robot1table0", "robot1table1"}};
+
+    std::vector<std::vector<geometry_msgs::PoseStamped> > detectionPoses;
+    std::vector<std::vector<geometry_msgs::PoseStamped> > placePoses;
 };

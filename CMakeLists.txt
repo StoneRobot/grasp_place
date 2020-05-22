@@ -2,13 +2,13 @@ cmake_minimum_required(VERSION 2.8.3)
 project(grasp_place)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+add_compile_options(-std=c++11)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  roscpp interactive_markers moveit_core moveit_visual_tools moveit_ros_planning moveit_ros_planning_interface pluginlib geometric_shapes pcl_ros pcl_conversions rosbag tf2_ros tf2_eigen tf2_geometry_msgs)
+  message_generation roscpp interactive_markers moveit_core moveit_visual_tools moveit_ros_planning moveit_ros_planning_interface pluginlib geometric_shapes pcl_ros pcl_conversions rosbag tf2_ros tf2_eigen tf2_geometry_msgs hirop_msgs)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -51,16 +51,12 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate services in the 'srv' folder
+add_service_files(FILES
+  rb_ArrayAndBool.srv
+)
 # add_service_files(
 #   FILES
-#   Service1.srv
-#   Service2.srv
 # )
-
-add_service_files(
-    FILES
-    rb_ArrayAndBool.srv
-  )
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -70,9 +66,8 @@ add_service_files(
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs  # Or other packages containing msgs
+# generate_messages(DEPENDENCIES
+#   std_msgs
 # )
 
 ################################################
@@ -105,11 +100,14 @@ add_service_files(
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
+  CATKIN_DEPENDS
+  message_runtime
 #  INCLUDE_DIRS include
 #  LIBRARIES grasp_place
 #  CATKIN_DEPENDS other_catkin_pkg
 #  DEPENDS system_lib
 )
+
 
 ###########
 ## Build ##
@@ -209,16 +207,17 @@ include_directories(
 # catkin_add_nosetests(test)
 
 
-# add_executable(main
-#   include/grasp_place/graspBaseFun.h
-#   include/grasp_place/grasplmpl.h
-#   include/grasp_place/robotMultManager.h
-#   src/graspBaseFun.cpp
-#   src/grasplmpl.cpp
-#   src/robotMultManager.cpp
-#   src/main.cpp
-# )
-# add_dependencies(main ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-# target_link_libraries(main
-#   ${catkin_LIBRARIES}
-# )
+add_executable(grasp
+  include/grasp_place/graspBaseFun.h
+  # include/grasp_place/grasplmpl.h
+  # include/grasp_place/robotMultManager.h
+  src/graspBaseFun.cpp
+  # src/grasplmpl.cpp
+  # src/robotMultManager.cpp
+  src/main.cpp
+)
+add_dependencies(grasp ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(grasp
+  ${catkin_LIBRARIES}
+  -lyaml-cpp
+)

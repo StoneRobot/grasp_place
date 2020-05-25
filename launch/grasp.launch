@@ -7,5 +7,5 @@
         <param name="isLoadPose" type="bool" value="true" />
     </node>
     <include file="$(find rubik_cube_solve)/launch/add.launch" />
-
+    <include file="$(find add_collision_object)/launch/add_shelf.launch" />
 </launch>

@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="distance" default="0.8" />
+    <node pkg="add_collision_object" type="add_collision_object" name="add_shelf" args="add_collision_object/meshes/shelf.stl shelf /world 
+        255 255 255 1 -0.55 $(arg distance) 1.02 0 0 -1.57" output="screen" />
+
+    <node pkg="add_collision_object" type="add_collision_object" name="add_board" args="add_collision_object/meshes/board.stl board /world 
+        255 255 255 1 -0.55 $(arg distance) 1.02 0 0 -1.57" output="screen" />
+    
+    <!-- <node pkg="add_collision_object" type="add_collision_object" name="add_wall12" args="add_collision_object/meshes/wall2.stl w2 /base_link 
+        0 255 0 1 -0.3 -0.60 0 0 0 0" output="screen" />
+
+    <node pkg="add_collision_object" type="add_collision_object" name="add_ceiling" args="add_collision_object/meshes/ceiling.stl ceiling /base_link 
+        0 255 0 1 -0.3 -0.60 1.0 0 0 0" output="screen" />
+
+    <node pkg="add_collision_object" type="add_collision_object" name="add_floor" args="add_collision_object/meshes/ceiling.stl floor /base_link 
+        0 0 0 1 -0.3 -0.60 0 0 0 0" output="screen" /> -->
+
+
+</launch>

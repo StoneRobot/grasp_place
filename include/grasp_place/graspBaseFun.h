@@ -8,6 +8,7 @@
 #include <std_srvs/Empty.h>
 #include <std_msgs/Int8MultiArray.h>
 #include <std_msgs/Int8.h>
+#include <moveit/planning_scene_interface/planning_scene_interface.h>
 
 
 // #include "rubik_cube_solve/rubik_cube_solve_cmd.h"
@@ -71,13 +72,16 @@ public:
     void pick(geometry_msgs::PoseStamped pose);
     void place(); 
 
-    bool loadPose(std::string folder, std::vector<std::vector<std::string> > filePathParam, std::vector<std::vector<geometry_msgs::PoseStamped> > pose);
+    bool loadPose(std::string folder, std::vector<std::vector<std::string> > filePathParam, std::vector<std::vector<geometry_msgs::PoseStamped> >& pose);
+    bool loadPickObjectName();
 
 
     void preprocessingPlacePose();
     void calibration(std::vector<std::vector<geometry_msgs::PoseStamped> > pose, std::vector<std::vector<std::string> > poseName, std::string folder, bool isNowHavePoseFile);
     void calibrationDetection(bool isNowHavePoseFile);
     void calibrationPlace(bool isNowHavePoseFile);
+    void removeOrAddObject();
+    // std::string showTF(geometry_msgs::PoseStamped pose);
 
 private:
     bool writePoseOnceFile(const std::string& name, const geometry_msgs::PoseStamped& pose);
@@ -92,6 +96,8 @@ private:
     ros::NodeHandle nh;
     moveit::planning_interface::MoveGroupInterface& move_group0;
     moveit::planning_interface::MoveGroupInterface& move_group1;
+    moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
+
     ros::ServiceClient openGripper_client0;
     ros::ServiceClient closeGripper_client0;
     ros::ServiceClient openGripper_client1;
@@ -106,10 +112,11 @@ private:
     ros::Subscriber pose_sub;
     ros::Subscriber calibrationSub;
     ros::Publisher Object_pub;
+    ros::Publisher planning_scene_diff_publisher = nh.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
 
     graspBaseFun pickData;
     const double prepare_some_distance = 0.08;
-    std::vector<std::string> pickObjectName={"milk_shelf"};
+    std::vector<std::string> pickObjectName;
 
     std::vector<std::vector<std::string> > detectionPosesName = {{"detect0ShelfTop", "detect0ShelfBottom", "detect0table"},
                                                     {"detect1ShelfTop", "detect1ShelfBottom", "detect1table"}};

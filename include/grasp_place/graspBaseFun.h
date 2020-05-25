@@ -71,7 +71,7 @@ public:
     void pick(geometry_msgs::PoseStamped pose);
     void place(); 
 
-    bool loadPose(std::vector<std::vector<std::string> > filePathParam, std::vector<std::vector<geometry_msgs::PoseStamped> > pose);
+    bool loadPose(std::string folder, std::vector<std::vector<std::string> > filePathParam, std::vector<std::vector<geometry_msgs::PoseStamped> > pose);
 
 
     void preprocessingPlacePose();
@@ -114,9 +114,12 @@ private:
     std::vector<std::vector<std::string> > detectionPosesName = {{"detect0ShelfTop", "detect0ShelfBottom", "detect0table"},
                                                     {"detect1ShelfTop", "detect1ShelfBottom", "detect1table"}};
 
-    std::vector<std::vector<std::string> > placePosesName = {{"robot0shelf0", "robot0shelf1", "robot0table0", "robot0table1"},
-                                                    {"robot1shelf0", "robot1shelf1", "robot1table0", "robot1table1"}};
+    std::vector<std::vector<std::string> > placePosesName = {{"robot0table0", "robot0table1", "robot0shelf0", "robot0shelf1"},
+                                                    {"robot1table0", "robot1table1", "robot1shelf0", "robot1shelf1"}};
 
     std::vector<std::vector<geometry_msgs::PoseStamped> > detectionPoses;
     std::vector<std::vector<geometry_msgs::PoseStamped> > placePoses;
+    std::string pkgPath;
+    std::string detectionPosesPath = "detectionPoses";
+    std::string placePosesPath = "placePoses";
 };

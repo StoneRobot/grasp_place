@@ -7,6 +7,7 @@ GraspPlace::GraspPlace(ros::NodeHandle nodehandle, \
 move_group1{group1}
 {
     nh = nodehandle;
+    // 
     openGripper_client0 = nh.serviceClient<hirop_msgs::openGripper>("/UR51/openGripper");
     closeGripper_client0 = nh.serviceClient<hirop_msgs::closeGripper>("/UR51/closeGripper");
     openGripper_client1 = nh.serviceClient<hirop_msgs::openGripper>("/UR52/openGripper");
@@ -29,10 +30,12 @@ move_group1{group1}
     move_group1.setMaxAccelerationScalingFactor(0.1);
     move_group0.setMaxVelocityScalingFactor(0.1);
     move_group1.setMaxVelocityScalingFactor(0.1);
-    move_group0.setGoalPositionTolerance(0.01);
-    move_group1.setGoalPositionTolerance(0.01);
-    move_group0.setGoalOrientationTolerance(0.01);
-    move_group1.setGoalOrientationTolerance(0.01);
+    move_group0.setGoalPositionTolerance(0.001);
+    move_group1.setGoalPositionTolerance(0.001);
+    move_group0.setGoalOrientationTolerance(0.001);
+    move_group1.setGoalOrientationTolerance(0.001);
+
+    nh.getParam("/grasp_place/pkg_path", pkgPath);
 
     setGenActuator();
     const int PoseCount = 3;
@@ -44,9 +47,14 @@ move_group1{group1}
     placePoses.resize(2);
     placePoses[0].resize(4);
     placePoses[1].resize(4);
-    loadPose(detectionPosesName, detectionPoses);
-    if(loadPose(placePosesName, placePoses))
-        preprocessingPlacePose();
+    bool isLoadPose;
+    nh.getParam("/grasp_place/isLoadPose", isLoadPose);
+    if(isLoadPose)
+    {
+        loadPose(detectionPosesPath, detectionPosesName, detectionPoses);
+        if(loadPose(placePosesPath, placePosesName, placePoses))
+            preprocessingPlacePose();
+    }
 }
 
 void GraspPlace::rmObject()
@@ -286,6 +294,7 @@ bool GraspPlace::getPickDataCallBack(rb_srvs::rb_ArrayAndBool::Request& req, rb_
         if(detectionObject(pickData.pickObject))
         {
             nh.getParam("/grasp_place/isGetObject", isGetObject);
+            // 没检测到时
             if(!isGetObject)
             {
                 // 貨架底層
@@ -305,7 +314,7 @@ bool GraspPlace::getPickDataCallBack(rb_srvs::rb_ArrayAndBool::Request& req, rb_
     }
     else
     {
-        // 檢測桌子
+        // 檢測桌子上的东西
         setAndMove(getMoveGroup(pickData.pickRobot), detectionPoses[pickData.pickRobot][2]);
         if(detectionObject(pickData.pickObject))
         {
@@ -385,16 +394,16 @@ void GraspPlace::pick(geometry_msgs::PoseStamped pose)
         orientation.setRPY(0, 0, 3.14);
         pose.pose.orientation = tf2::toMsg(orientation);
         pose.pose.position.x += prepare_some_distance;
-        pre_grasp_approach[0] = -prepare_some_distance;
-        post_grasp_retreat[0] = prepare_some_distance;
+        pre_grasp_approach[0] = -1;
+        post_grasp_retreat[0] = 1;
     }
     else
     {
         orientation.setRPY(0, 0, pow(-1, pickData.pickRobot)*1.57);
         pose.pose.orientation = tf2::toMsg(orientation);
         pose.pose.position.y -= pow(-1, pickData.pickRobot)*prepare_some_distance;
-        pre_grasp_approach[1] += pow(-1, pickData.pickRobot)*prepare_some_distance;
-        post_grasp_retreat[1] -= pow(-1, pickData.pickRobot)*prepare_some_distance;
+        pre_grasp_approach[1] = pow(-1, pickData.pickRobot);
+        post_grasp_retreat[2] = 1;
     }
     showObject(pose.pose);
     PickPlace(pickData.pickRobot, pose, true, pre_grasp_approach, post_grasp_retreat);
@@ -403,23 +412,23 @@ void GraspPlace::pick(geometry_msgs::PoseStamped pose)
 void GraspPlace::place()
 {
     // 每個機器人在桌子和貨架都有兩個擺放的位置, 這個變量是用來改變擺放位置的
-    static int robotPlacePoseExchang[2][2]={0};
+    static int robotPlacePoseExchang[2][2]={{0, 2}, {0, 2}};
     int pre_grasp_approach[3]={0}; 
     int post_grasp_retreat[3]={0};
     // 放置
     if(pickData.pickMode == 0)
     {
-        pre_grasp_approach[1] += pow(-1, pickData.pickRobot)*prepare_some_distance;
-        post_grasp_retreat[1] -= pow(-1, pickData.pickRobot)*prepare_some_distance;
+        pre_grasp_approach[1] = pow(-1, pickData.pickRobot);
+        post_grasp_retreat[1] = pow(-1, pickData.pickRobot);
     }
     else
     {
-        pre_grasp_approach[0] -= pow(-1, pickData.pickRobot)*prepare_some_distance;
-        post_grasp_retreat[0] += pow(-1, pickData.pickRobot)*prepare_some_distance;
+        pre_grasp_approach[0] = -1;
+        post_grasp_retreat[0] = 1;
     }
     PickPlace(pickData.pickRobot, placePoses[pickData.pickRobot][robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode]], false, \
                 pre_grasp_approach, post_grasp_retreat);
-    robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode] =  (++robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode])%2;
+    robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode] =  (++robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode])%2 + pickData.pickMode * 2;
 }
 
 bool GraspPlace::writePoseOnceFile(const std::string& name, const geometry_msgs::PoseStamped& pose)
@@ -465,8 +474,7 @@ bool GraspPlace::addData(geometry_msgs::PoseStamped& pose, YAML::Node node)
 bool GraspPlace::recordPose(int robotNum, std::string name, bool isJointSpace, std::string folder="recordPose")
 {
     std::string path;
-    nh.getParam("/grasp_place/record_pose_path", path);
-    path += "/" + folder + "/" + name + ".yaml";
+    path = pkgPath + "/" + folder + "/" + name + ".yaml";
     if(isJointSpace)
     {
         ROS_DEBUG("record joint space in development ...");
@@ -482,18 +490,20 @@ bool GraspPlace::recordPose(int robotNum, std::string name, bool isJointSpace, s
     return true;
 }
 
-bool GraspPlace::loadPose(std::vector<std::vector<std::string> > filePathParam, std::vector<std::vector<geometry_msgs::PoseStamped> > pose)
+bool GraspPlace::loadPose(std::string folder, std::vector<std::vector<std::string> > filePathParam, std::vector<std::vector<geometry_msgs::PoseStamped> > pose)
 {
     std::string path;
     YAML::Node doc;
-    std::size_t count = filePathParam.size();
+    std::size_t count = filePathParam[0].size();
 
     bool isFinish;
     for(std::size_t i=0; i<2; ++i)
     {
         for(std::size_t j=0; j<count/2; ++j)
         {
-            nh.getParam(filePathParam[i][j], path);
+            path.clear();
+            path = pkgPath + "/" + pkgPath + "/" + filePathParam[i][j] + ".yaml";
+            ROS_INFO_STREAM("load pose: " << path);
             doc = YAML::LoadFile(path);
             isFinish = addData(pose[i][j], doc);
             if(!isFinish)

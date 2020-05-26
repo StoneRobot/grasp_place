@@ -21,8 +21,9 @@ def callback(req):
     pose_stamped.pose.orientation.w = 1
     pose_object_info.pose = pose_stamped
     msg.objects.append(pose_object_info)
-    array_object.publish(msg)
+    # array_object.publish(msg)
     detectionResponse(1)
+    return True;
     # rospy.logout(pose_stamped)
 
 detectionn_ser = rospy.Service("detection", detection, callback)

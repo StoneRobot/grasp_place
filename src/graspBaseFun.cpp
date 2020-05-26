@@ -298,6 +298,9 @@ bool GraspPlace::getPickDataCallBack(rb_srvs::rb_ArrayAndBool::Request& req, rb_
     pickData.pickRobot = req.data[1];
     // 从什么地方放到什么地方
     pickData.pickMode = req.data[2];
+    pickData.pickObject -= 1;
+    pickData.pickRobot -= 1;
+    pickData.pickMode -= 1;
     removeOrAddObject();
     ROS_INFO_STREAM("Object: " << pickObjectName[pickData.pickObject]<< "robot: " <<" "<< pickData.pickRobot << "pickMode: " <<" "<< pickData.pickMode);
     ROS_INFO_STREAM("action ....");
@@ -326,6 +329,7 @@ bool GraspPlace::getPickDataCallBack(rb_srvs::rb_ArrayAndBool::Request& req, rb_
                         // 不成功就回home點
                         const std::string home = "home" + std::to_string(pickData.pickRobot);
                         getMoveGroup(pickData.pickRobot).setNamedTarget(home);
+                        getMoveGroup(pickData.pickRobot).move();
                     }
                 }
             }
@@ -345,6 +349,7 @@ bool GraspPlace::getPickDataCallBack(rb_srvs::rb_ArrayAndBool::Request& req, rb_
                 ROS_INFO_STREAM("back home");
                 const std::string home = "home" + std::to_string(pickData.pickRobot);
                 getMoveGroup(pickData.pickRobot).setNamedTarget(home);
+                getMoveGroup(pickData.pickRobot).move();
             }
         }
     }
@@ -392,13 +397,6 @@ void GraspPlace::objectCallBack(const hirop_msgs::ObjectArray::ConstPtr& msg)
         getMoveGroup(pickData.pickRobot).move();
     }
 }
-
-// std::string GraspPlace::showTF(geometry_msgs::PoseStamped pose)
-// {
-//     std::string cmd = "rosrun tf static_transform_publisher";
-//     cmd = cmd + " " + std::to_string(pose.pose.position.x);
-//     cmd = cmd + " " + std::to_string(pose.pose.orientation.w); 
-// }
 
 void GraspPlace::calibrationCallBack(const std_msgs::Int8::ConstPtr& msg)
 {
@@ -465,7 +463,8 @@ void GraspPlace::place()
     }
     PickPlace(pickData.pickRobot, placePoses[pickData.pickRobot][robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode]], false, \
                 pre_grasp_approach, post_grasp_retreat);
-
+    ROS_INFO_STREAM("place: " << placePoses[pickData.pickRobot][robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode]]);
+    ROS_INFO_STREAM("i: " << pickData.pickRobot << " j: " << robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode]);
     robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode] = 
     (++robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode])%2 + pickData.pickMode * 2;
 }
@@ -646,6 +645,11 @@ void GraspPlace::removeOrAddObject()
     collision_objects[0].operation = collision_objects[0].ADD;
 
     planning_scene_interface.applyCollisionObjects(collision_objects);
+
+    moveit_msgs::PlanningScene p;
+    p.is_diff = true;
+    // p.object_colors.push_back();
+    planning_scene_diff_publisher.publish(p);
 }
 
 

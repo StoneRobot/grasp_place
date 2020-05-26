@@ -148,7 +148,7 @@ bool GraspPlace::transformFrame(geometry_msgs::PoseStamped& poseStamped, std::st
     }
 }
 
-void GraspPlace::robotMoveCartesianUnit2(moveit::planning_interface::MoveGroupInterface &group, double x, double y, double z)
+void GraspPlace:: robotMoveCartesianUnit2(moveit::planning_interface::MoveGroupInterface &group, double x, double y, double z)
 {
     std::vector<double>joint = group.getCurrentJointValues();
     moveit_msgs::RobotState r;
@@ -215,6 +215,14 @@ bool GraspPlace::openGripper(moveit::planning_interface::MoveGroupInterface& mov
 
 void GraspPlace::PickPlace(int robotNum, geometry_msgs::PoseStamped& pose, bool isPick, int pre_grasp_approach[], int post_grasp_retreat[])
 {
+    //TODO bug 1 去到放置目标点
+    std::vector<double> joint = getMoveGroup(robotNum).getCurrentJointValues();
+    moveit_msgs::RobotState r;
+    r.joint_state.position = joint;
+    getMoveGroup(robotNum).setStartState(r);
+    getMoveGroup(robotNum).setStartStateToCurrentState();
+    ros::Duration(0.1).sleep();
+    
     setAndMove(getMoveGroup(robotNum), pose);
     if(isPick)
     { 
@@ -233,7 +241,7 @@ void GraspPlace::PickPlace(int robotNum, geometry_msgs::PoseStamped& pose, bool 
         // 寸进的过程 后退
         robotMoveCartesianUnit2(getMoveGroup(robotNum), post_grasp_retreat[0]*prepare_some_distance, \
                                 post_grasp_retreat[1]*prepare_some_distance, post_grasp_retreat[2]*prepare_some_distance);
-        ROS_INFO("PICK UP  THE CUBE Z");
+        // ROS_INFO("PICK UP  THE CUBE Z");
     }
     else
     {
@@ -243,7 +251,7 @@ void GraspPlace::PickPlace(int robotNum, geometry_msgs::PoseStamped& pose, bool 
         openGripper(getMoveGroup(robotNum));
         robotMoveCartesianUnit2(getMoveGroup(robotNum), post_grasp_retreat[0]*prepare_some_distance, \
                                 post_grasp_retreat[1]*prepare_some_distance, post_grasp_retreat[2]*prepare_some_distance);
-        ROS_INFO("PLACE UP  THE CUBE Y");
+        // ROS_INFO("PLACE UP  THE CUBE Y");
     }
 }
 
@@ -302,7 +310,7 @@ bool GraspPlace::getPickDataCallBack(rb_srvs::rb_ArrayAndBool::Request& req, rb_
     pickData.pickRobot -= 1;
     pickData.pickMode -= 1;
     removeOrAddObject();
-    ROS_INFO_STREAM("Object: " << pickObjectName[pickData.pickObject]<< "robot: " <<" "<< pickData.pickRobot << "pickMode: " <<" "<< pickData.pickMode);
+    ROS_INFO_STREAM("Object: " << pickObjectName[pickData.pickObject].c_str() << " robot: " <<" "<< pickData.pickRobot << "pickMode: " <<" "<< pickData.pickMode);
     ROS_INFO_STREAM("action ....");
     if(pickData.pickMode == 0)
     {
@@ -463,10 +471,11 @@ void GraspPlace::place()
     }
     PickPlace(pickData.pickRobot, placePoses[pickData.pickRobot][robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode]], false, \
                 pre_grasp_approach, post_grasp_retreat);
+
     ROS_INFO_STREAM("place: " << placePoses[pickData.pickRobot][robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode]]);
     ROS_INFO_STREAM("i: " << pickData.pickRobot << " j: " << robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode]);
-    robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode] = 
-    (++robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode])%2 + pickData.pickMode * 2;
+    robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode] =  (++robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode])%2 \
+                                                                    + pickData.pickMode * 2;
 }
 
 bool GraspPlace::writePoseOnceFile(const std::string& name, const geometry_msgs::PoseStamped& pose)
@@ -644,10 +653,12 @@ void GraspPlace::removeOrAddObject()
 
     collision_objects[0].operation = collision_objects[0].ADD;
 
-    planning_scene_interface.applyCollisionObjects(collision_objects);
+    // planning_scene_interface.applyCollisionObjects(collision_objects);
 
     moveit_msgs::PlanningScene p;
+    p.world.collision_objects.push_back(collision_objects[0]);
     p.is_diff = true;
+    p.robot_state.is_diff = true;
     // p.object_colors.push_back();
     planning_scene_diff_publisher.publish(p);
 }

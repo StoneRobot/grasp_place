@@ -6,6 +6,5 @@
         <param name="pkg_path" type="str" value="$(find grasp_place)" />
         <param name="isLoadPose" type="bool" value="true" />
     </node>
-    <include file="$(find rubik_cube_solve)/launch/add.launch" />
     <include file="$(find grasp_place)/launch/add_shelf.launch" />
 </launch>

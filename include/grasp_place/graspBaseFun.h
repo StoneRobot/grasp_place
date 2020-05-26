@@ -9,6 +9,7 @@
 #include <std_msgs/Int8MultiArray.h>
 #include <std_msgs/Int8.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
+#include <moveit/planning_scene/planning_scene.h>
 
 
 // #include "rubik_cube_solve/rubik_cube_solve_cmd.h"
@@ -112,7 +113,7 @@ private:
     ros::Subscriber pose_sub;
     ros::Subscriber calibrationSub;
     ros::Publisher Object_pub;
-    ros::Publisher planning_scene_diff_publisher = nh.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
+    ros::Publisher planning_scene_diff_publisher;
 
     graspBaseFun pickData;
     const double prepare_some_distance = 0.08;

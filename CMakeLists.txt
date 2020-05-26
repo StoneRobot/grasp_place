@@ -221,10 +221,10 @@ target_link_libraries(grasp
   -lyaml-cpp
 )
 
-add_executable(testSpace
-  src/testSpace.cpp
-)
-add_dependencies(testSpace ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(testSpace
-  ${catkin_LIBRARIES}
-)
+# add_executable(testSpace
+#   src/testSpace.cpp
+# )
+# add_dependencies(testSpace ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# target_link_libraries(testSpace
+#   ${catkin_LIBRARIES}
+# )

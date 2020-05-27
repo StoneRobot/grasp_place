@@ -22,7 +22,7 @@ move_group1{group1}
 
     Object_pub = nh.advertise<hirop_msgs::ObjectArray>("object_array", 1);
     planning_scene_diff_publisher = nh.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
-    getPickData  = nh.advertiseService("grep_set", &GraspPlace::getPickDataCallBack, this);
+    getPickData  = nh.advertiseService("/Rb_grepSetCommand", &GraspPlace::getPickDataCallBack, this);
  
     pose_sub = nh.subscribe("/object_array", 1, &GraspPlace::objectCallBack, this);
     calibrationSub = nh.subscribe("calibration", 1, &GraspPlace::calibrationCallBack, this);
@@ -296,21 +296,25 @@ moveit::planning_interface::MoveItErrorCode GraspPlace::loop_move(moveit::planni
     return code;
 }
 
-bool GraspPlace::getPickDataCallBack(rb_srvs::rb_ArrayAndBool::Request& req, rb_srvs::rb_ArrayAndBool::Response& rep)
+bool GraspPlace::getPickDataCallBack(rb_msgs::rb_ArrayAndBool::Request& req, rb_msgs::rb_ArrayAndBool::Response& rep)
 {
     bool  isGetObject;
-    // 捡什么东西
-    ROS_INFO_STREAM("into callbakc function");
-    pickData.pickObject = req.data[0];
-    // 在指定机器人
-    pickData.pickRobot = req.data[1];
+    ROS_INFO_STREAM("into callback function");
+    ROS_INFO_STREAM(req.data.size());
     // 从什么地方放到什么地方
-    pickData.pickMode = req.data[2];
-    pickData.pickObject -= 1;
-    pickData.pickRobot -= 1;
-    pickData.pickMode -= 1;
-    removeOrAddObject();
+    pickData.pickMode = req.data[0];
+    // 捡什么东西
+    pickData.pickObject = req.data[1];
+    // 在指定机器人
+    pickData.pickRobot = req.data[2];
     ROS_INFO_STREAM("Object: " << pickObjectName[pickData.pickObject].c_str() << " robot: " <<" "<< pickData.pickRobot << "pickMode: " <<" "<< pickData.pickMode);
+
+
+//    pickData.pickObject -= 1;
+//    pickData.pickRobot -= 1;
+//    pickData.pickMode -= 1;
+    removeOrAddObject();
+    rep.respond = true;
     ROS_INFO_STREAM("action ....");
     if(pickData.pickMode == 0)
     {
@@ -338,6 +342,7 @@ bool GraspPlace::getPickDataCallBack(rb_srvs::rb_ArrayAndBool::Request& req, rb_
                         const std::string home = "home" + std::to_string(pickData.pickRobot);
                         getMoveGroup(pickData.pickRobot).setNamedTarget(home);
                         getMoveGroup(pickData.pickRobot).move();
+                        rep.respond = false;
                     }
                 }
             }
@@ -358,11 +363,12 @@ bool GraspPlace::getPickDataCallBack(rb_srvs::rb_ArrayAndBool::Request& req, rb_
                 const std::string home = "home" + std::to_string(pickData.pickRobot);
                 getMoveGroup(pickData.pickRobot).setNamedTarget(home);
                 getMoveGroup(pickData.pickRobot).move();
+                rep.respond = false;
             }
         }
     }
     nh.setParam("/grasp_place/isGetObject", false);
-    return true;
+    return rep.respond;
 }
 
 bool GraspPlace::detectionObject(int objectNum)
@@ -621,6 +627,8 @@ void GraspPlace::preprocessingPlacePose()
         }
     }
 }
+
+
 
 void GraspPlace::removeOrAddObject()
 {

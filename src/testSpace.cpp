@@ -9,6 +9,7 @@
 #include <fstream>
 #include <iostream>
 #include "hirop_msgs/ObjectArray.h"
+#include <nav_msgs/Odometry.h>
 
 ros::Publisher planning_scene_diff_publisher;
 
@@ -67,6 +68,8 @@ void remove()
         remove_object.id = it;
         p.world.collision_objects.push_back(remove_object);
     }
+    p.is_diff = true;
+    p.robot_state.is_diff = true;
     planning_scene_diff_publisher.publish(p);
 }
 
@@ -79,33 +82,9 @@ void addShelf(double x)
     p.world.collision_objects[2] = addCollisionObjects(0.2, 1.2, 0.02, x, 0.5, 1.31, 0, 0, 0, "world", "box3");
     p.world.collision_objects[3] = addCollisionObjects(0.2, 0.01, 1.84, x, 1.1, 0.9, 0, 0, 0, "world", "box4");
     p.world.collision_objects[4] = addCollisionObjects(0.2, 0.01, 1.84, x, -0.1, 0.9, 0, 0, 0, "world", "box5");
+    p.robot_state.is_diff = true;
+    p.is_diff = true;
     planning_scene_diff_publisher.publish(p);
-    // // 2 2 0.01
-    // // 0 0.5 1.05 
-    // // 0 0 0 wolrd floor
-    // std::string cmd0 = "rosrun rubik_cube_solve add 0.2 1.2 0.02 ";
-    // std::string cmd1 = " 0.6 1.84 0 0 0 world top";
-    // std::string cmd2 = " 0.6 1.57 0 0 0 world shelftop";
-    // std::string cmd3 = " 0.6 1.31 0 0 0 world shelfbottom";
-    // std::string cmd4 = cmd0 + std::to_string(x) + cmd1;
-    // std::string cmd5 = cmd0 + std::to_string(x) + cmd2;
-    // std::string cmd6 = cmd0 + std::to_string(x) + cmd3;
-    // system(cmd4.c_str());
-    // ROS_INFO_STREAM(1);
-    // system(cmd5.c_str());
-    // ROS_INFO_STREAM(2);
-    // system(cmd5.c_str());
-    // ROS_INFO_STREAM(3);
-    // ///////////////////////////////////
-    // std::string cmd7 = "rosrun rubik_cube_solve add 0.2 0.01 1.84 ";
-    // std::string cmd8 = " 1.1 0.9 0 0 0 world r";
-    // std::string cmd9 = " -0.1 0.9 0 0 0 world l";
-    // std::string cmd10 = cmd7 + std::to_string(x) + cmd8;
-    // std::string cmd11 = cmd7 + std::to_string(x) + cmd9;
-    // system(cmd10.c_str());
-    // ROS_INFO_STREAM(4);
-    // system(cmd11.c_str());
-    // ROS_INFO_STREAM(5);
 }
 
 bool robotMoveCartesian(moveit::planning_interface::MoveGroupInterface &group, double x, double y, double z)
@@ -160,7 +139,7 @@ bool planAndGo(moveit::planning_interface::MoveGroupInterface& move_group, movei
     while (isSuccess == false && cnt < 5);
     if(isSuccess)
     {
-        move_group.move();
+        // move_group.move();
         return true;
     }
     else
@@ -169,16 +148,16 @@ bool planAndGo(moveit::planning_interface::MoveGroupInterface& move_group, movei
     }
 }
 
-bool moveGroupGo(moveit::planning_interface::MoveGroupInterface& move_group, geometry_msgs::PoseStamped targetPose)
+bool moveGroupGo(moveit::planning_interface::MoveGroupInterface& move_group, geometry_msgs::PoseStamped& targetPose)
 {
-    const double x = 0.07;
+    // const double x = 0.07;
     moveit::planning_interface::MoveGroupInterface::Plan my_plan;
-    targetPose.pose.position.x += x;
+    // targetPose.pose.position.x += x;
     move_group.setPoseTarget(targetPose);
     if(planAndGo(move_group, my_plan))
-        if(robotMoveCartesian(move_group, -x, 0, 0))
-            if(robotMoveCartesian(move_group, x, 0, 0))
-                return true;
+        return true;
+        // if(robotMoveCartesian(move_group, -x, 0, 0))
+        //     if(robotMoveCartesian(move_group, x, 0, 0))
     return false;
 }
 
@@ -190,7 +169,12 @@ int main(int argc, char *argv[])
     spinner.start();
     moveit::planning_interface::MoveGroupInterface move_group0("arm0");
     moveit::planning_interface::MoveGroupInterface move_group1("arm1");
+    move_group0.setNamedTarget("home0");
+    move_group0.move();
+    move_group1.setNamedTarget("home1");
+    move_group1.move();
     planning_scene_diff_publisher = nh.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
+    ros::Publisher odometryPub = nh.advertise<nav_msgs::Odometry>("targetPose", 10);
     while (planning_scene_diff_publisher.getNumSubscribers() < 1)
      {
         ros::Duration(0.5).sleep();
@@ -215,7 +199,9 @@ int main(int argc, char *argv[])
         ROS_INFO_STREAM("open file faild");
         return -1;
     }
+    nav_msgs::Odometry odom;
     
+    int successPoint[2][16] = {0};
     // X 轴的距离
     for(std::size_t i = 0; i < 7; ++i)
     {
@@ -227,9 +213,10 @@ int main(int argc, char *argv[])
             // 上下层
             for(std::size_t j=0; j<2; ++j)
             {
-                int successPoint[2][16] = {0};
                 std::string shelf;
                 // 右边的机器人从0.2m开始(Y 轴)
+                // robotLeft 0 + 16 * 0.05 = 0.8
+                // robotRight 0.2 + 16 * 0.05 = 1
                 double yDistance = robot * 0.2;
                 // double yDistance = 0.4;
                 switch (j)
@@ -267,22 +254,27 @@ int main(int argc, char *argv[])
                     if(isSuccess)
                     {
                         cnt ++;
+                        odom.header.frame_id = targetPose.header.frame_id;
+                        odom.pose.pose = targetPose.pose;
+                        odometryPub.publish(odom); 
                         successPoint[j][k] = 1;
+                    }
+                    else
+                    {
+                        successPoint[j][k] = 0;
                     }
                     yDistance += 0.05;
                 }
                 successRate = static_cast<double>(cnt)/16.0;
                 destFile << shelf.c_str() << " " << successRate << std::endl;
             }
-            if(robot==0)
+            for(std::size_t row=0; row<2; row++)
             {
-                move_group0.setNamedTarget("home0");
-                move_group0.move();
-            }
-            else
-            {
-                move_group1.setNamedTarget("home1");
-                move_group1.move();
+                for(std::size_t column=0; column<16; column++)
+                {
+                    destFile << successPoint[row][column];
+                }
+                destFile << std::endl;
             }
             destFile << "......" <<std::endl;
         }

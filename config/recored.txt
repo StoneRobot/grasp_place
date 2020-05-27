@@ -1,0 +1,70 @@
+x distance: -0.6
+robot: 0
+top 0
+bottom 0
+......
+robot: 1
+top 0
+bottom 0
+......
+--------------------------------
+x distance: -0.65
+robot: 0
+top 0
+bottom 0
+......
+robot: 1
+top 0
+bottom 0
+......
+--------------------------------
+x distance: -0.7
+robot: 0
+top 0
+bottom 0
+......
+robot: 1
+top 0
+bottom 0
+......
+--------------------------------
+x distance: -0.75
+robot: 0
+top 0
+bottom 0
+......
+robot: 1
+top 0
+bottom 0
+......
+--------------------------------
+x distance: -0.8
+robot: 0
+top 0
+bottom 0
+......
+robot: 1
+top 0
+bottom 0
+......
+--------------------------------
+x distance: -0.85
+robot: 0
+top 0
+bottom 0
+......
+robot: 1
+top 0
+bottom 0
+......
+--------------------------------
+x distance: -0.9
+robot: 0
+top 0
+bottom 0
+......
+robot: 1
+top 0
+bottom 0
+......
+--------------------------------

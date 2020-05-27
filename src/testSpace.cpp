@@ -6,38 +6,106 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <string>
 #include <stdlib.h>
-#include <hirop_msgs/ObjectArray.h>
 #include <fstream>
 #include <iostream>
+#include "hirop_msgs/ObjectArray.h"
+
+ros::Publisher planning_scene_diff_publisher;
+
+inline double angle2rad(double angle)
+{
+    return angle/180*3.1415;
+}
+
+moveit_msgs::CollisionObject addCollisionObjects(double sx, double sy, double sz,\
+double px, double py, double pz, \
+double ox, double oy, double oz, \
+std::string frame_id, std::string id)
+{
+
+    moveit_msgs::CollisionObject collision_objects;
+
+    collision_objects.id = id;
+    collision_objects.header.frame_id = frame_id;
+
+    collision_objects.primitives.resize(1);
+    collision_objects.primitives[0].type = collision_objects.primitives[0].BOX;
+    collision_objects.primitives[0].dimensions.resize(3);
+    collision_objects.primitives[0].dimensions[0] = sx;
+    collision_objects.primitives[0].dimensions[1] = sy;
+    collision_objects.primitives[0].dimensions[2] = sz;
+
+    collision_objects.primitive_poses.resize(1);
+    collision_objects.primitive_poses[0].position.x = px;
+    collision_objects.primitive_poses[0].position.y = py;
+    collision_objects.primitive_poses[0].position.z = pz;
+
+    tf2::Quaternion orientation;
+    orientation.setRPY(angle2rad(ox), angle2rad(oy), angle2rad(oz));
+    collision_objects.primitive_poses[0].orientation = tf2::toMsg(orientation);
+
+    collision_objects.operation = collision_objects.ADD;
+
+    return collision_objects;
+    // moveit_msgs::PlanningScene p;
+    // p.world.collision_objects.push_back(collision_objects[0]);
+    // p.is_diff = true;
+    // p.robot_state.is_diff = true;
+    // planning_scene_diff_publisher.publish(p);
+    
+}
+
+void remove()
+{
+    moveit_msgs::PlanningScene p;
+    std::vector<std::string> objectName={"box1", "box2", "box3", "box4", "box5"};
+    for(auto it: objectName)
+    {
+        moveit_msgs::CollisionObject remove_object;
+        remove_object.operation = remove_object.REMOVE;
+        remove_object.header.frame_id = "world";
+        remove_object.id = it;
+        p.world.collision_objects.push_back(remove_object);
+    }
+    planning_scene_diff_publisher.publish(p);
+}
 
 void addShelf(double x)
 {
-    // 2 2 0.01
-    // 0 0.5 1.05 
-    // 0 0 0 wolrd floor
-    std::string cmd0 = "rosrun rubik_cube_solve add 0.2 1.2 0.02 ";
-    std::string cmd1 = " 0.6 1.84 0 0 0 world top";
-    std::string cmd2 = " 0.6 1.57 0 0 0 world shelftop";
-    std::string cmd3 = " 0.6 1.31 0 0 0 world shelfbottom";
-    std::string cmd4 = cmd0 + std::to_string(x) + cmd1;
-    std::string cmd5 = cmd0 + std::to_string(x) + cmd2;
-    std::string cmd6 = cmd0 + std::to_string(x) + cmd3;
-    system(cmd4.c_str());
-    ROS_INFO_STREAM(1);
-    system(cmd5.c_str());
-    ROS_INFO_STREAM(2);
-    system(cmd5.c_str());
-    ROS_INFO_STREAM(3);
-    ///////////////////////////////////
-    std::string cmd7 = "rosrun rubik_cube_solve add 0.2 0.01 1.84 ";
-    std::string cmd8 = " 1.1 0.9 0 0 0 world r";
-    std::string cmd9 = " -0.1 0.9 0 0 0 world l";
-    std::string cmd10 = cmd7 + std::to_string(x) + cmd8;
-    std::string cmd11 = cmd7 + std::to_string(x) + cmd9;
-    system(cmd10.c_str());
-    ROS_INFO_STREAM(4);
-    system(cmd11.c_str());
-    ROS_INFO_STREAM(5);
+    moveit_msgs::PlanningScene p;
+    p.world.collision_objects.resize(5);
+    p.world.collision_objects[0] = addCollisionObjects(0.2, 1.2, 0.02, x, 0.5, 1.84, 0, 0, 0, "world", "box1");
+    p.world.collision_objects[1] = addCollisionObjects(0.2, 1.2, 0.02, x, 0.5, 1.57, 0, 0, 0, "world", "box2");
+    p.world.collision_objects[2] = addCollisionObjects(0.2, 1.2, 0.02, x, 0.5, 1.31, 0, 0, 0, "world", "box3");
+    p.world.collision_objects[3] = addCollisionObjects(0.2, 0.01, 1.84, x, 1.1, 0.9, 0, 0, 0, "world", "box4");
+    p.world.collision_objects[4] = addCollisionObjects(0.2, 0.01, 1.84, x, -0.1, 0.9, 0, 0, 0, "world", "box5");
+    planning_scene_diff_publisher.publish(p);
+    // // 2 2 0.01
+    // // 0 0.5 1.05 
+    // // 0 0 0 wolrd floor
+    // std::string cmd0 = "rosrun rubik_cube_solve add 0.2 1.2 0.02 ";
+    // std::string cmd1 = " 0.6 1.84 0 0 0 world top";
+    // std::string cmd2 = " 0.6 1.57 0 0 0 world shelftop";
+    // std::string cmd3 = " 0.6 1.31 0 0 0 world shelfbottom";
+    // std::string cmd4 = cmd0 + std::to_string(x) + cmd1;
+    // std::string cmd5 = cmd0 + std::to_string(x) + cmd2;
+    // std::string cmd6 = cmd0 + std::to_string(x) + cmd3;
+    // system(cmd4.c_str());
+    // ROS_INFO_STREAM(1);
+    // system(cmd5.c_str());
+    // ROS_INFO_STREAM(2);
+    // system(cmd5.c_str());
+    // ROS_INFO_STREAM(3);
+    // ///////////////////////////////////
+    // std::string cmd7 = "rosrun rubik_cube_solve add 0.2 0.01 1.84 ";
+    // std::string cmd8 = " 1.1 0.9 0 0 0 world r";
+    // std::string cmd9 = " -0.1 0.9 0 0 0 world l";
+    // std::string cmd10 = cmd7 + std::to_string(x) + cmd8;
+    // std::string cmd11 = cmd7 + std::to_string(x) + cmd9;
+    // system(cmd10.c_str());
+    // ROS_INFO_STREAM(4);
+    // system(cmd11.c_str());
+    // ROS_INFO_STREAM(5);
 }
 
 bool robotMoveCartesian(moveit::planning_interface::MoveGroupInterface &group, double x, double y, double z)
@@ -122,6 +190,11 @@ int main(int argc, char *argv[])
     spinner.start();
     moveit::planning_interface::MoveGroupInterface move_group0("arm0");
     moveit::planning_interface::MoveGroupInterface move_group1("arm1");
+    planning_scene_diff_publisher = nh.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
+    while (planning_scene_diff_publisher.getNumSubscribers() < 1)
+     {
+        ros::Duration(0.5).sleep();
+    }
     ros::Publisher objectPub = nh.advertise<hirop_msgs::ObjectArray>("object_array", 1);
     double xDistanceBegin = 0.6;
     // -0.6 - 0.05 * 7 = -0.95
@@ -211,8 +284,11 @@ int main(int argc, char *argv[])
                 move_group1.setNamedTarget("home1");
                 move_group1.move();
             }
+            destFile << "......" <<std::endl;
         }
         xDistance -= 0.05;
+        destFile << "--------------------------------" <<std::endl;
+        remove();
     }
     destFile.close();
     return 0;

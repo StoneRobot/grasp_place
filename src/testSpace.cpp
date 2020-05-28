@@ -47,13 +47,7 @@ std::string frame_id, std::string id)
 
     collision_objects.operation = collision_objects.ADD;
 
-    return collision_objects;
-    // moveit_msgs::PlanningScene p;
-    // p.world.collision_objects.push_back(collision_objects[0]);
-    // p.is_diff = true;
-    // p.robot_state.is_diff = true;
-    // planning_scene_diff_publisher.publish(p);
-    
+    return collision_objects;    
 }
 
 void remove()
@@ -150,14 +144,10 @@ bool planAndGo(moveit::planning_interface::MoveGroupInterface& move_group, movei
 
 bool moveGroupGo(moveit::planning_interface::MoveGroupInterface& move_group, geometry_msgs::PoseStamped& targetPose)
 {
-    // const double x = 0.07;
     moveit::planning_interface::MoveGroupInterface::Plan my_plan;
-    // targetPose.pose.position.x += x;
     move_group.setPoseTarget(targetPose);
     if(planAndGo(move_group, my_plan))
         return true;
-        // if(robotMoveCartesian(move_group, -x, 0, 0))
-        //     if(robotMoveCartesian(move_group, x, 0, 0))
     return false;
 }
 
@@ -179,7 +169,6 @@ int main(int argc, char *argv[])
      {
         ros::Duration(0.5).sleep();
     }
-    ros::Publisher objectPub = nh.advertise<hirop_msgs::ObjectArray>("object_array", 1);
     double xDistanceBegin = 0.6;
     // -0.6 - 0.05 * 7 = -0.95
     double xDistance = -0.60;
@@ -218,7 +207,6 @@ int main(int argc, char *argv[])
                 // robotLeft 0 + 16 * 0.05 = 0.8
                 // robotRight 0.2 + 16 * 0.05 = 1
                 double yDistance = robot * 0.2;
-                // double yDistance = 0.4;
                 switch (j)
                 {
                     case 0:

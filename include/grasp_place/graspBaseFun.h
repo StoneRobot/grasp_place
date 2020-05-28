@@ -83,7 +83,8 @@ public:
     void calibrationPlace(bool isNowHavePoseFile);
     void removeOrAddObject();
     // std::string showTF(geometry_msgs::PoseStamped pose);
-
+    void stopMove();
+    void backHome();
 private:
     bool writePoseOnceFile(const std::string& name, const geometry_msgs::PoseStamped& pose);
     bool addData(geometry_msgs::PoseStamped& pose, YAML::Node node);
@@ -93,6 +94,7 @@ private:
     // 0 爲檢測, 1 爲放置, 2, 3同是, 只是之前沒有點位文件, 或不用點位文件.
     void calibrationCallBack(const std_msgs::Int8::ConstPtr& msg);
     bool getPickDataCallBack(rb_msgs::rb_ArrayAndBool::Request& req, rb_msgs::rb_ArrayAndBool::Response& rep);
+    bool sotpMoveCallBack(std_srvs::Empty::Request& req, std_srvs::Empty::Response& rep);
 
     ros::NodeHandle nh;
     moveit::planning_interface::MoveGroupInterface& move_group0;
@@ -108,8 +110,9 @@ private:
     ros::ServiceClient list_actuator_client;
     ros::ServiceClient show_object_client;
     ros::ServiceClient remove_object_client;
-    ros::ServiceServer getPickData;
     ros::ServiceClient detection_client;
+    ros::ServiceServer getPickData;
+    ros::ServiceServer stop_move;
     ros::Subscriber pose_sub;
     ros::Subscriber calibrationSub;
     ros::Publisher Object_pub;
@@ -130,4 +133,6 @@ private:
     std::string pkgPath;
     std::string detectionPosesPath = "detectionPoses";
     std::string placePosesPath = "placePoses";
+    // 为true时停止
+    bool isStop;
 };

@@ -8,7 +8,7 @@
         255 255 255 1 -0.80 $(arg distance) 1.02 0 0 -1.57" output="screen" />
 
     <node pkg="rubik_cube_solve" type="add" name="add_floor" args="2 2 0.01
-    0 0.5 1.05 
+    0 0.5 1.0 
     0 0 0 world floor" output="screen" />
 
     <!-- <node pkg="rubik_cube_solve" type="add" name="add_table" args="0.4 0.4 0.01
@@ -19,5 +19,10 @@
     0.75 0.4 1.5
     0 0 0 
     world qian_wall" output="screen" /> 
+
+    <node pkg="rubik_cube_solve" type="add" name="add_ceil" args="2 2 0.01 
+    0 0.5 2.0
+    0 0 0 
+    world ceil" output="screen" /> 
     
 </launch>

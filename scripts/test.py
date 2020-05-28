@@ -22,10 +22,10 @@ def callback(req):
     pose_stamped.pose.orientation.w = 1
     pose_object_info.pose = pose_stamped
     msg.objects.append(pose_object_info)
-    # if cnt == 1:
+    # if cnt == 3:
     array_object.publish(msg)
-    cnt += 1
     rospy.loginfo(cnt)
+    cnt += 1
     detectionResponse(1)
     return True
     # rospy.logout(pose_stamped)

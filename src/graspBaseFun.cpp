@@ -20,9 +20,11 @@ move_group1{group1}
     set_gen_actuator_client = nh.serviceClient<hirop_msgs::SetGenActuator>("setGenActuator");
     detection_client = nh.serviceClient<hirop_msgs::detection>("detection");
 
+
     Object_pub = nh.advertise<hirop_msgs::ObjectArray>("object_array", 1);
     planning_scene_diff_publisher = nh.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
     getPickData  = nh.advertiseService("/Rb_grepSetCommand", &GraspPlace::getPickDataCallBack, this);
+    stop_move = nh.advertiseService("stop_move", &GraspPlace::sotpMoveCallBack, this);
  
     pose_sub = nh.subscribe("/object_array", 1, &GraspPlace::objectCallBack, this);
     calibrationSub = nh.subscribe("calibration", 1, &GraspPlace::calibrationCallBack, this);
@@ -37,7 +39,7 @@ move_group1{group1}
     move_group1.setGoalOrientationTolerance(0.001);
 
     nh.getParam("/grasp_place/pkg_path", pkgPath);
-
+    isStop = false;
     setGenActuator();
     const int PoseCount = 3;
     detectionPoses.resize(2);
@@ -52,15 +54,10 @@ move_group1{group1}
     nh.getParam("/grasp_place/isLoadPose", isLoadPose);
     if(isLoadPose)
     {
-        ROS_INFO_STREAM(1);
         loadPose(detectionPosesPath, detectionPosesName, detectionPoses);
-        ROS_INFO_STREAM(2);
         loadPose(placePosesPath, placePosesName, placePoses);
-        ROS_INFO_STREAM(3);
         loadPickObjectName();
-        ROS_INFO_STREAM(4);
         preprocessingPlacePose();
-        ROS_INFO_STREAM(5);
     }
 }
 
@@ -167,10 +164,11 @@ void GraspPlace:: robotMoveCartesianUnit2(moveit::planning_interface::MoveGroupI
     std::vector<geometry_msgs::Pose> waypoints;
     waypoints.push_back(target_pose);
     moveit_msgs::RobotTrajectory trajectory;
-    while( group.computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory) < 1.0);
+    while( group.computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory) < 1.0 && !isStop);
     moveit::planning_interface::MoveGroupInterface::Plan plan;
     plan.trajectory_ = trajectory;
-    group.execute(plan);
+    if(!isStop)
+        group.execute(plan);
 }
 
 moveit::planning_interface::MoveGroupInterface& GraspPlace::getMoveGroup(int num)
@@ -273,14 +271,18 @@ moveit::planning_interface::MoveItErrorCode GraspPlace::setAndMove(moveit::plann
 moveit::planning_interface::MoveItErrorCode GraspPlace::moveGroupPlanAndMove(moveit::planning_interface::MoveGroupInterface& move_group, \
                                                                 moveit::planning_interface::MoveGroupInterface::Plan& my_plan)
 {
-    while (ros::ok())
+    int cnt = 0;
+    moveit::planning_interface::MoveItErrorCode code;
+    do
     {
-        if(move_group.plan(my_plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS)
-        {
-            break;
-        }
+        code = move_group.plan(my_plan);
     }
-    return loop_move(move_group);
+    while (ros::ok() && cnt < 10 && code.val != moveit::planning_interface::MoveItErrorCode::SUCCESS && !isStop);
+    if(code.val == moveit::planning_interface::MoveItErrorCode::SUCCESS && !isStop)
+    {
+        code = loop_move(move_group);
+    }
+    return code;
 }
 
 moveit::planning_interface::MoveItErrorCode GraspPlace::loop_move(moveit::planning_interface::MoveGroupInterface& move_group)
@@ -289,30 +291,37 @@ moveit::planning_interface::MoveItErrorCode GraspPlace::loop_move(moveit::planni
     moveit::planning_interface::MoveItErrorCode code;
     do
     {
+        ROS_INFO_STREAM("loop_move");
         code = move_group.move();
         cnt ++;
     }
-    while (ros::ok() && cnt < 10 && code.val == moveit::planning_interface::MoveItErrorCode::TIMED_OUT);
+    while (ros::ok() && cnt < 10 && code.val == moveit::planning_interface::MoveItErrorCode::TIMED_OUT && !isStop==false);
     return code;
+}
+
+void GraspPlace::backHome()
+{
+    if(!isStop)
+    {
+        ROS_INFO_STREAM("back home");
+        const std::string home = "home" + std::to_string(pickData.pickRobot);
+        getMoveGroup(pickData.pickRobot).setNamedTarget(home);
+        getMoveGroup(pickData.pickRobot).move();
+    }
 }
 
 bool GraspPlace::getPickDataCallBack(rb_msgs::rb_ArrayAndBool::Request& req, rb_msgs::rb_ArrayAndBool::Response& rep)
 {
-    bool  isGetObject;
+    nh.setParam("/isRuning_grab", true);
+    bool isGetObject;
     ROS_INFO_STREAM("into callback function");
-    ROS_INFO_STREAM(req.data.size());
     // 从什么地方放到什么地方
     pickData.pickMode = req.data[0];
     // 捡什么东西
     pickData.pickObject = req.data[1];
     // 在指定机器人
     pickData.pickRobot = req.data[2];
-    ROS_INFO_STREAM("Object: " << pickObjectName[pickData.pickObject].c_str() << " robot: " <<" "<< pickData.pickRobot << "pickMode: " <<" "<< pickData.pickMode);
-
-
-//    pickData.pickObject -= 1;
-//    pickData.pickRobot -= 1;
-//    pickData.pickMode -= 1;
+    ROS_INFO_STREAM("Object: " << pickObjectName[pickData.pickObject] << ", robot: " << pickData.pickRobot << ", pickMode: " << pickData.pickMode);
     removeOrAddObject();
     rep.respond = true;
     ROS_INFO_STREAM("action ....");
@@ -337,11 +346,8 @@ bool GraspPlace::getPickDataCallBack(rb_msgs::rb_ArrayAndBool::Request& req, rb_
                     nh.getParam("/grasp_place/isGetObject", isGetObject);
                     if(!isGetObject)
                     {
-                        ROS_INFO_STREAM("back home");
                         // 不成功就回home點
-                        const std::string home = "home" + std::to_string(pickData.pickRobot);
-                        getMoveGroup(pickData.pickRobot).setNamedTarget(home);
-                        getMoveGroup(pickData.pickRobot).move();
+                        backHome();
                         rep.respond = false;
                     }
                 }
@@ -359,16 +365,41 @@ bool GraspPlace::getPickDataCallBack(rb_msgs::rb_ArrayAndBool::Request& req, rb_
             nh.getParam("/grasp_place/isGetObject", isGetObject);
             if(!isGetObject)
             {
-                ROS_INFO_STREAM("back home");
-                const std::string home = "home" + std::to_string(pickData.pickRobot);
-                getMoveGroup(pickData.pickRobot).setNamedTarget(home);
-                getMoveGroup(pickData.pickRobot).move();
-                rep.respond = false;
+                backHome();
             }
+            rep.respond = false;
         }
     }
     nh.setParam("/grasp_place/isGetObject", false);
+    if(rep.respond == false)
+    {
+        // 运动结束反馈
+        nh.setParam("/isRuning_grab", false);
+        ROS_INFO_STREAM("set 'isStop' false");
+        isStop = false;
+    }
     return rep.respond;
+}
+
+void GraspPlace::objectCallBack(const hirop_msgs::ObjectArray::ConstPtr& msg)
+{
+    nh.setParam("/grasp_place/isGetObject", true);
+    std::string home = "home";
+    for(std::size_t i=0; i < msg->objects.size() && !isStop; ++i)
+    {
+        geometry_msgs::PoseStamped pose = msg->objects[i].pose;
+        ROS_INFO_STREAM("not transform pick pose: " << pose);
+        transformFrame(pose);
+        ROS_INFO_STREAM("transform pick pose: " << pose);
+        // system();
+        pick(pose);
+        place();
+        rmObject();
+        backHome();
+    }
+    // 运动结束反馈
+    isStop = false;
+    nh.setParam("/isRuning_grab", false);
 }
 
 bool GraspPlace::detectionObject(int objectNum)
@@ -392,25 +423,7 @@ bool GraspPlace::detectionObject(int objectNum)
     return isFinish;
 }
 
-void GraspPlace::objectCallBack(const hirop_msgs::ObjectArray::ConstPtr& msg)
-{
-    nh.setParam("/grasp_place/isGetObject", true);
-    std::string home = "home";
-    for(std::size_t i=0; i < msg->objects.size(); ++i)
-    {
-        geometry_msgs::PoseStamped pose = msg->objects[i].pose;
-        ROS_INFO_STREAM("not transform pick pose: " << pose);
-        transformFrame(pose);
-        ROS_INFO_STREAM("transform pick pose: " << pose);
-        // system();
-        pick(pose);
-        place();
-        rmObject();
-        home = home + std::to_string(pickData.pickRobot);
-        getMoveGroup(pickData.pickRobot).setNamedTarget(home);
-        getMoveGroup(pickData.pickRobot).move();
-    }
-}
+
 
 void GraspPlace::calibrationCallBack(const std_msgs::Int8::ConstPtr& msg)
 {
@@ -517,7 +530,7 @@ bool GraspPlace::addData(geometry_msgs::PoseStamped& pose, YAML::Node node)
     }
     catch(const std::exception& e)
     {
-        ROS_DEBUG(e.what());
+        ROS_INFO_STREAM(e.what());
         // std::cerr << e.what() << '\n';
         return false;
     }
@@ -529,7 +542,7 @@ bool GraspPlace::recordPose(int robotNum, std::string name, bool isJointSpace, s
     path = pkgPath + "/" + folder + "/" + name + ".yaml";
     if(isJointSpace)
     {
-        ROS_DEBUG("record joint space in development ...");
+        ROS_INFO_STREAM("record joint space in development ...");
     }
     else
     {
@@ -622,7 +635,7 @@ void GraspPlace::preprocessingPlacePose()
             }
             else
             {
-                placePoses[i][j].pose.position.x += pow(-1, i)*prepare_some_distance;
+                placePoses[i][j].pose.position.x += prepare_some_distance;
             }
         }
     }
@@ -661,8 +674,6 @@ void GraspPlace::removeOrAddObject()
 
     collision_objects[0].operation = collision_objects[0].ADD;
 
-    // planning_scene_interface.applyCollisionObjects(collision_objects);
-
     moveit_msgs::PlanningScene p;
     p.world.collision_objects.push_back(collision_objects[0]);
     p.is_diff = true;
@@ -671,4 +682,15 @@ void GraspPlace::removeOrAddObject()
     planning_scene_diff_publisher.publish(p);
 }
 
+void GraspPlace::stopMove()
+{
+    move_group0.stop();
+    move_group1.stop();
+    isStop = true;
+}
 
+bool GraspPlace::sotpMoveCallBack(std_srvs::Empty::Request& req, std_srvs::Empty::Response& rep)
+{
+    stopMove();
+    return true;
+}

@@ -15,7 +15,7 @@ def callback(req):
     pose_stamped = PoseStamped()
     pose_object_info = ObjectInfo()
     msg = ObjectArray()
-    pose_stamped.header.frame_id = "pick_gripper_link_1"
+    pose_stamped.header.frame_id = "pick_gripper_link_0"
     pose_stamped.pose.position.x = 0.1
     pose_stamped.pose.position.y = 0
     pose_stamped.pose.position.z = 0

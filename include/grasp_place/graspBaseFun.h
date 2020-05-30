@@ -28,7 +28,7 @@
 #include "hirop_msgs/SetGenActuator.h"
 #include "hirop_msgs/ObjectArray.h"
 #include "hirop_msgs/detection.h"
-#include "rb_msgs/rb_ArrayAndBool.h"
+#include "rb_msgAndSrv/rb_ArrayAndBool.h"
 
 #include <vector>
 #include <iostream>
@@ -93,7 +93,7 @@ private:
     void objectCallBack(const hirop_msgs::ObjectArray::ConstPtr& msg);
     // 0 爲檢測, 1 爲放置, 2, 3同是, 只是之前沒有點位文件, 或不用點位文件.
     void calibrationCallBack(const std_msgs::Int8::ConstPtr& msg);
-    bool getPickDataCallBack(rb_msgs::rb_ArrayAndBool::Request& req, rb_msgs::rb_ArrayAndBool::Response& rep);
+    bool getPickDataCallBack(rb_msgAndSrv::rb_ArrayAndBool::Request& req, rb_msgAndSrv::rb_ArrayAndBool::Response& rep);
     bool sotpMoveCallBack(std_srvs::Empty::Request& req, std_srvs::Empty::Response& rep);
 
     ros::NodeHandle nh;

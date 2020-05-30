@@ -318,7 +318,7 @@ void GraspPlace::backHome()
     }
 }
 
-bool GraspPlace::getPickDataCallBack(rb_msgs::rb_ArrayAndBool::Request& req, rb_msgs::rb_ArrayAndBool::Response& rep)
+bool GraspPlace::getPickDataCallBack(rb_msgAndSrv::rb_ArrayAndBool::Request& req, rb_msgAndSrv::rb_ArrayAndBool::Response& rep)
 {
     nh.setParam("/isRuning_grab", true);
     bool isGetObject;

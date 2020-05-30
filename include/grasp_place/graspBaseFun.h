@@ -8,6 +8,7 @@
 #include <std_srvs/Empty.h>
 #include <std_msgs/Int8MultiArray.h>
 #include <std_msgs/Int8.h>
+#include <std_msgs/Bool.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
 #include <moveit/planning_scene/planning_scene.h>
 
@@ -92,10 +93,12 @@ private:
     bool recordPose(int robotNum, std::string name, bool isJointSpace, std::string folder);
 
     void objectCallBack(const hirop_msgs::ObjectArray::ConstPtr& msg);
+    void sotpMoveCallback(const std_msgs::Bool::ConstPtr& msg);
     // 0 爲檢測, 1 爲放置, 2, 3同是, 只是之前沒有點位文件, 或不用點位文件.
     void calibrationCallBack(const std_msgs::Int8::ConstPtr& msg);
+    
     bool getPickDataCallBack(rb_msgAndSrv::rb_ArrayAndBool::Request& req, rb_msgAndSrv::rb_ArrayAndBool::Response& rep);
-    bool sotpMoveCallBack(std_srvs::Empty::Request& req, std_srvs::Empty::Response& rep);
+    // bool sotpMoveCallBack(std_srvs::Empty::Request& req, std_srvs::Empty::Response& rep);
 
     ros::NodeHandle nh;
     moveit::planning_interface::MoveGroupInterface& move_group0;
@@ -112,10 +115,14 @@ private:
     ros::ServiceClient show_object_client;
     ros::ServiceClient remove_object_client;
     ros::ServiceClient detection_client;
+
     ros::ServiceServer getPickData;
-    ros::ServiceServer stop_move;
+    // ros::ServiceServer stop_move;
+
     ros::Subscriber pose_sub;
     ros::Subscriber calibrationSub;
+    ros::Subscriber stopMoveSub;
+
     ros::Publisher Object_pub;
     ros::Publisher planning_scene_diff_publisher;
 

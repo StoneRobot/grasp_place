@@ -5,7 +5,7 @@ GraspPlace::GraspPlace(ros::NodeHandle nodehandle, \
                                 moveit::planning_interface::MoveGroupInterface& group1)
 :move_group0{group0},
 move_group1{group1}
-{
+{ 
     nh = nodehandle;
     // 
     openGripper_client0 = nh.serviceClient<hirop_msgs::openGripper>("/UR51/openGripper");
@@ -24,10 +24,11 @@ move_group1{group1}
     Object_pub = nh.advertise<hirop_msgs::ObjectArray>("object_array", 1);
     planning_scene_diff_publisher = nh.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
     getPickData  = nh.advertiseService("/Rb_grepSetCommand", &GraspPlace::getPickDataCallBack, this);
-    stop_move = nh.advertiseService("stop_move", &GraspPlace::sotpMoveCallBack, this);
+    // stop_move = nh.advertiseService("stop_move", &GraspPlace::sotpMoveCallBack, this);
  
     pose_sub = nh.subscribe("/object_array", 1, &GraspPlace::objectCallBack, this);
     calibrationSub = nh.subscribe("calibration", 1, &GraspPlace::calibrationCallBack, this);
+    stopMoveSub = nh.subscribe("/stop_move", 1, &GraspPlace::sotpMoveCallback, this);
 
     move_group0.setMaxAccelerationScalingFactor(0.1);
     move_group1.setMaxAccelerationScalingFactor(0.1);
@@ -281,6 +282,7 @@ moveit::planning_interface::MoveItErrorCode GraspPlace::moveGroupPlanAndMove(mov
 {
     int cnt = 0;
     moveit::planning_interface::MoveItErrorCode code;
+    if(!isStop)  
     do
     {
         code = move_group.plan(my_plan);
@@ -702,13 +704,13 @@ void GraspPlace::removeOrAddObject()
 
 void GraspPlace::stopMove()
 {
+    ROS_INFO_STREAM("stop ...");
     move_group0.stop();
     move_group1.stop();
     isStop = true;
 }
 
-bool GraspPlace::sotpMoveCallBack(std_srvs::Empty::Request& req, std_srvs::Empty::Response& rep)
+void GraspPlace::sotpMoveCallback(const std_msgs::Bool::ConstPtr& msg)
 {
     stopMove();
-    return true;
 }

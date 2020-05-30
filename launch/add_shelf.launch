@@ -23,6 +23,6 @@
     <node pkg="rubik_cube_solve" type="add" name="add_ceil" args="2 2 0.01 
     0 0.5 2.0
     0 0 0 
-    world ceil" output="screen" /> 
+    world ceil true" output="screen" /> 
     
 </launch>

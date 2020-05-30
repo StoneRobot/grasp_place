@@ -1,4 +1,6 @@
 <launch>
+    <param name="isRuning_grab" type="bool" value="false" />
+
     <node pkg="grasp_place" type="grasp" name="grasp_place" output="screen">
         <rosparam command="load" file="$(find grasp_place)/config/pickObjectNames.yaml" />
         <param name="detectionObjectNum" type="int" value="2" />

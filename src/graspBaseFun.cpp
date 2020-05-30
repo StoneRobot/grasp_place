@@ -385,6 +385,7 @@ bool GraspPlace::getPickDataCallBack(rb_msgAndSrv::rb_ArrayAndBool::Request& req
         nh.setParam("/isRuning_grab", false);
         ROS_INFO_STREAM("set 'isStop' false");
         isStop = false;
+        rmWall();
     }
     return rep.respond;
 }
@@ -405,6 +406,7 @@ void GraspPlace::objectCallBack(const hirop_msgs::ObjectArray::ConstPtr& msg)
         rmObject();
         backHome();
     }
+    rmWall();
     // 运动结束反馈
     isStop = false;
     nh.setParam("/isRuning_grab", false);
@@ -650,8 +652,7 @@ void GraspPlace::preprocessingPlacePose()
 }
 
 
-
-void GraspPlace::removeOrAddObject()
+void GraspPlace::rmWall()
 {
     std::vector<moveit_msgs::CollisionObject> collision_objects;
     collision_objects.resize(1);
@@ -659,6 +660,15 @@ void GraspPlace::removeOrAddObject()
     collision_objects[0].id = "wall";
     collision_objects[0].operation = collision_objects[0].REMOVE;
     planning_scene_interface.applyCollisionObjects(collision_objects);
+}
+
+
+void GraspPlace::removeOrAddObject()
+{
+    std::vector<moveit_msgs::CollisionObject> collision_objects;
+    collision_objects.resize(1);
+
+    rmWall();
 
     collision_objects[0].id = "wall";
     collision_objects[0].header.frame_id = "base_link";

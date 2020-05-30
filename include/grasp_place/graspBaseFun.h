@@ -85,6 +85,7 @@ public:
     // std::string showTF(geometry_msgs::PoseStamped pose);
     void stopMove();
     void backHome();
+    void rmWall();
 private:
     bool writePoseOnceFile(const std::string& name, const geometry_msgs::PoseStamped& pose);
     bool addData(geometry_msgs::PoseStamped& pose, YAML::Node node);

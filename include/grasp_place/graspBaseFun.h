@@ -11,6 +11,7 @@
 #include <std_msgs/Bool.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
 #include <moveit/planning_scene/planning_scene.h>
+#include <moveit_msgs/CollisionObject.h>
 
 
 // #include "rubik_cube_solve/rubik_cube_solve_cmd.h"
@@ -33,7 +34,7 @@
 
 #include <vector>
 #include <iostream>
-#include <fstream>
+#include <fstream> 
 #include <stdlib.h>
 #include "yaml-cpp/yaml.h"
 
@@ -54,9 +55,7 @@ class GraspPlace
 public:
     GraspPlace(ros::NodeHandle nodehandle, moveit::planning_interface::MoveGroupInterface& group0, moveit::planning_interface::MoveGroupInterface& group1);
 
-    void rmObject();
     void showObject(geometry_msgs::Pose pose);
-    bool setGenActuator();
     bool transformFrame(geometry_msgs::PoseStamped& poseStamped, std::string frame_id);
     void robotMoveCartesianUnit2(moveit::planning_interface::MoveGroupInterface &group, double x, double y, double z);
     moveit::planning_interface::MoveGroupInterface& getMoveGroup(int num);
@@ -70,7 +69,7 @@ public:
                                                                 moveit::planning_interface::MoveGroupInterface::Plan& my_plan);
 
     moveit::planning_interface::MoveItErrorCode loop_move(moveit::planning_interface::MoveGroupInterface& move_group);
-    bool detectionObject(int objectNum);
+    bool detectionObject(int objectNum, int robot);
     void pick(geometry_msgs::PoseStamped pose);
     void place(); 
 
@@ -86,20 +85,22 @@ public:
     // std::string showTF(geometry_msgs::PoseStamped pose);
     void stopMove();
     void backHome();
-    void rmWall();
+    void rmObject(std::string name);
 private:
     bool writePoseOnceFile(const std::string& name, const geometry_msgs::PoseStamped& pose);
     bool addData(geometry_msgs::PoseStamped& pose, YAML::Node node);
     bool recordPose(int robotNum, std::string name, bool isJointSpace, std::string folder);
 
     void objectCallBack(const hirop_msgs::ObjectArray::ConstPtr& msg);
+    void pickPlaceObject(geometry_msgs::PoseStamped pickPose);
+    
     void sotpMoveCallback(const std_msgs::Bool::ConstPtr& msg);
     // 0 爲檢測, 1 爲放置, 2, 3同是, 只是之前沒有點位文件, 或不用點位文件.
     void calibrationCallBack(const std_msgs::Int8::ConstPtr& msg);
     
     bool getPickDataCallBack(rb_msgAndSrv::rb_ArrayAndBool::Request& req, rb_msgAndSrv::rb_ArrayAndBool::Response& rep);
     // bool sotpMoveCallBack(std_srvs::Empty::Request& req, std_srvs::Empty::Response& rep);
-
+ 
     ros::NodeHandle nh;
     moveit::planning_interface::MoveGroupInterface& move_group0;
     moveit::planning_interface::MoveGroupInterface& move_group1;
@@ -109,17 +110,14 @@ private:
     ros::ServiceClient closeGripper_client0;
     ros::ServiceClient openGripper_client1;
     ros::ServiceClient closeGripper_client1;
-    ros::ServiceClient list_generator_client;
-    ros::ServiceClient set_gen_actuator_client;
-    ros::ServiceClient list_actuator_client;
-    ros::ServiceClient show_object_client;
-    ros::ServiceClient remove_object_client;
     ros::ServiceClient detection_client;
+    ros::ServiceClient detection_client_right;
 
     ros::ServiceServer getPickData;
     // ros::ServiceServer stop_move;
 
-    ros::Subscriber pose_sub;
+    ros::Subscriber poseSub;
+    ros::Subscriber poseSubRight;
     ros::Subscriber calibrationSub;
     ros::Subscriber stopMoveSub;
 

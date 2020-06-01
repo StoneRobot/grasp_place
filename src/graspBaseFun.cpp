@@ -13,20 +13,16 @@ move_group1{group1}
     openGripper_client1 = nh.serviceClient<hirop_msgs::openGripper>("/UR52/openGripper");
     closeGripper_client1 = nh.serviceClient<hirop_msgs::closeGripper>("/UR52/closeGripper");
 
-    remove_object_client = nh.serviceClient<hirop_msgs::RemoveObject>("removeObject");
-    show_object_client = nh.serviceClient<hirop_msgs::ShowObject>("showObject");
-    list_generator_client = nh.serviceClient<hirop_msgs::listGenerator>("listGenerator");
-    list_actuator_client = nh.serviceClient<hirop_msgs::listActuator>("listActuator");
-    set_gen_actuator_client = nh.serviceClient<hirop_msgs::SetGenActuator>("setGenActuator");
-    detection_client = nh.serviceClient<hirop_msgs::detection>("detection");
-
+    detection_client = nh.serviceClient<hirop_msgs::detection>("UR51/detection");
+    detection_client_right = nh.serviceClient<hirop_msgs::detection>("UR52/detection");
 
     Object_pub = nh.advertise<hirop_msgs::ObjectArray>("object_array", 1);
     planning_scene_diff_publisher = nh.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
     getPickData  = nh.advertiseService("/Rb_grepSetCommand", &GraspPlace::getPickDataCallBack, this);
     // stop_move = nh.advertiseService("stop_move", &GraspPlace::sotpMoveCallBack, this);
  
-    pose_sub = nh.subscribe("/object_array", 1, &GraspPlace::objectCallBack, this);
+    poseSub = nh.subscribe("/UR51/object_array", 1, &GraspPlace::objectCallBack, this);
+    poseSubRight = nh.subscribe("UR52/object_array", 1, &GraspPlace::objectCallBack, this);
     calibrationSub = nh.subscribe("calibration", 1, &GraspPlace::calibrationCallBack, this);
     stopMoveSub = nh.subscribe("/stop_move", 1, &GraspPlace::sotpMoveCallback, this);
 
@@ -41,7 +37,6 @@ move_group1{group1}
 
     nh.getParam("/grasp_place/pkg_path", pkgPath);
     isStop = false;
-    setGenActuator();
     const int PoseCount = 3;
     detectionPoses.resize(2);
     // 0 上層貨架, 1 下層貨架, 2 桌子
@@ -62,54 +57,39 @@ move_group1{group1}
     }
 }
 
-void GraspPlace::rmObject()
-{
-    hirop_msgs::RemoveObject srv;
-    if(remove_object_client.call(srv))
-    {
-        ROS_INFO_STREAM("remove object "<< (srv.response.isSetFinsh ? "Succeed" : "Faild"));
-    }
-    else
-    {
-        ROS_INFO("check \\removeObject service ");
-    }
-}
 
 void GraspPlace::showObject(geometry_msgs::Pose pose)
 {
-    hirop_msgs::ShowObject srv;
-    srv.request.objPose.header.frame_id = "base_link";
-    srv.request.objPose.pose.position.x = pose.position.x;
-    srv.request.objPose.pose.position.y = pose.position.y;
-    srv.request.objPose.pose.position.z = pose.position.z;
-    srv.request.objPose.pose.orientation.x = pose.orientation.x;
-    srv.request.objPose.pose.orientation.y = pose.orientation.y;
-    srv.request.objPose.pose.orientation.z = pose.orientation.z;
-    srv.request.objPose.pose.orientation.w = pose.orientation.w;
-    if(show_object_client.call(srv))
-    {
-        ROS_INFO_STREAM("show object "<< (srv.response.isSetFinsh ? "Succeed" : "Faild"));
-    }
-    else
-    {
-        ROS_INFO("check \\showObject service ");
-    }
+    std::vector<moveit_msgs::CollisionObject> collisionObject;
+    collisionObject.resize(1);
+    collisionObject[0].id = "object";
+    collisionObject[0].header.frame_id = "world";
+    collisionObject[0].primitives.resize(1);
+    collisionObject[0].primitives[0].type = collisionObject[0].primitives[0].BOX;
+    collisionObject[0].primitives[0].dimensions.resize(3);
+    //"2 2 0.01 0 0.5 0.05
+    collisionObject[0].primitives[0].dimensions[0] = 0.033;
+    collisionObject[0].primitives[0].dimensions[1] = 0.033;
+    collisionObject[0].primitives[0].dimensions[2] = 0.07;
+
+    collisionObject[0].primitive_poses.resize(1);
+    collisionObject[0].primitive_poses[0].orientation.x = pose.orientation.x;
+    collisionObject[0].primitive_poses[0].orientation.y = pose.orientation.y;
+    collisionObject[0].primitive_poses[0].orientation.z = pose.orientation.z;
+    collisionObject[0].primitive_poses[0].orientation.w = pose.orientation.w;
+    collisionObject[0].primitive_poses[0].position.x = pose.position.x;
+    collisionObject[0].primitive_poses[0].position.y = pose.position.y;
+    collisionObject[0].primitive_poses[0].position.z = pose.position.z;
+
+    collisionObject[0].operation = moveit_msgs::CollisionObject::ADD;
+    moveit_msgs::PlanningScene p;
+    p.world.collision_objects.push_back(collisionObject[0]);
+    p.is_diff = true;
+    p.robot_state.is_diff = true;
+    planning_scene_diff_publisher.publish(p);
+    ros::Duration(0.1).sleep();
 }
 
-bool GraspPlace::setGenActuator()
-{
-    hirop_msgs::listGenerator list_generator_srv;
-    hirop_msgs::listActuator list_actuator_srv;
-    hirop_msgs::SetGenActuator set_gen_actuator_srv;
-    if(list_generator_client.call(list_generator_srv) && list_actuator_client.call(list_actuator_srv))
-    {
-        set_gen_actuator_srv.request.generatorName = list_generator_srv.response.generatorList[0];
-        set_gen_actuator_srv.request.actuatorName = list_actuator_srv.response.actuatorList[0];
-        if(set_gen_actuator_client.call(set_gen_actuator_srv))
-            return true;
-    }
-    return false;
-}
 
 bool GraspPlace::transformFrame(geometry_msgs::PoseStamped& poseStamped, std::string frame_id="world")
 {
@@ -256,6 +236,7 @@ void GraspPlace::PickPlace(int robotNum, geometry_msgs::PoseStamped& pose, bool 
         robotMoveCartesianUnit2(getMoveGroup(robotNum), pre_grasp_approach[0]*prepare_some_distance, \
                                 pre_grasp_approach[1]*prepare_some_distance, pre_grasp_approach[2]*prepare_some_distance);
         openGripper(getMoveGroup(robotNum));
+        getMoveGroup(robotNum).detachObject("object");
         robotMoveCartesianUnit2(getMoveGroup(robotNum), post_grasp_retreat[0]*prepare_some_distance, \
                                 post_grasp_retreat[1]*prepare_some_distance, post_grasp_retreat[2]*prepare_some_distance);
         // ROS_INFO("PLACE UP  THE CUBE Y");
@@ -287,7 +268,7 @@ moveit::planning_interface::MoveItErrorCode GraspPlace::moveGroupPlanAndMove(mov
     {
         code = move_group.plan(my_plan);
     }
-    while (ros::ok() && cnt < 10 && code.val != moveit::planning_interface::MoveItErrorCode::SUCCESS && !isStop);
+    while (ros::ok() && cnt < 5 && code.val != moveit::planning_interface::MoveItErrorCode::SUCCESS && !isStop);
     if(code.val == moveit::planning_interface::MoveItErrorCode::SUCCESS && !isStop)
     {
         code = loop_move(move_group);
@@ -305,7 +286,7 @@ moveit::planning_interface::MoveItErrorCode GraspPlace::loop_move(moveit::planni
         code = move_group.move();
         cnt ++;
     }
-    while (ros::ok() && cnt < 10 && code.val == moveit::planning_interface::MoveItErrorCode::TIMED_OUT && !isStop==false);
+    while (ros::ok() && cnt < 5 && code.val == moveit::planning_interface::MoveItErrorCode::TIMED_OUT && !isStop==false);
     return code;
 }
 
@@ -341,7 +322,7 @@ bool GraspPlace::getPickDataCallBack(rb_msgAndSrv::rb_ArrayAndBool::Request& req
         setAndMove(getMoveGroup(pickData.pickRobot), detectionPoses[pickData.pickRobot][0]);
         ROS_INFO_STREAM(detectionPoses[pickData.pickRobot][0]);
         ROS_INFO_STREAM("to shelf top");
-        if(detectionObject(pickData.pickObject))
+        if(detectionObject(pickData.pickObject, pickData.pickRobot))
         {
             nh.getParam("/grasp_place/isGetObject", isGetObject);
             // 没检测到时
@@ -351,7 +332,7 @@ bool GraspPlace::getPickDataCallBack(rb_msgAndSrv::rb_ArrayAndBool::Request& req
                 // 貨架底層
                 setAndMove(getMoveGroup(pickData.pickRobot), detectionPoses[pickData.pickRobot][1]);
                 ROS_INFO_STREAM(detectionPoses[pickData.pickRobot][1]);
-                if(detectionObject(pickData.pickObject))
+                if(detectionObject(pickData.pickObject, pickData.pickRobot))
                 {
                     nh.getParam("/grasp_place/isGetObject", isGetObject);
                     if(!isGetObject)
@@ -370,7 +351,7 @@ bool GraspPlace::getPickDataCallBack(rb_msgAndSrv::rb_ArrayAndBool::Request& req
         setAndMove(getMoveGroup(pickData.pickRobot), detectionPoses[pickData.pickRobot][2]);
         ROS_INFO_STREAM(detectionPoses[pickData.pickRobot][2]);
         ROS_INFO_STREAM("to table");
-        if(detectionObject(pickData.pickObject))
+        if(detectionObject(pickData.pickObject, pickData.pickRobot))
         {
             nh.getParam("/grasp_place/isGetObject", isGetObject);
             if(!isGetObject)
@@ -387,7 +368,7 @@ bool GraspPlace::getPickDataCallBack(rb_msgAndSrv::rb_ArrayAndBool::Request& req
         nh.setParam("/isRuning_grab", false);
         ROS_INFO_STREAM("set 'isStop' false");
         isStop = false;
-        rmWall();
+        rmObject("object");
     }
     return rep.respond;
 }
@@ -403,18 +384,23 @@ void GraspPlace::objectCallBack(const hirop_msgs::ObjectArray::ConstPtr& msg)
         transformFrame(pose);
         ROS_INFO_STREAM("transform pick pose: " << pose);
         // system();
-        pick(pose);
-        place();
-        rmObject();
-        backHome();
+        pickPlaceObject(pose);
     }
-    rmWall();
+    rmObject("wall");
     // 运动结束反馈
     isStop = false;
     nh.setParam("/isRuning_grab", false);
 }
 
-bool GraspPlace::detectionObject(int objectNum)
+void GraspPlace::pickPlaceObject(geometry_msgs::PoseStamped pickPose)
+{
+    pick(pickPose);
+    place();
+    rmObject("wall");
+    backHome();
+}
+
+bool GraspPlace::detectionObject(int objectNum, int robot)
 {
     bool isFinish;
     hirop_msgs::detection det_srv;
@@ -422,7 +408,12 @@ bool GraspPlace::detectionObject(int objectNum)
     det_srv.request.detectorName = "Yolo6d";
     det_srv.request.detectorType = 1;
     det_srv.request.detectorConfig = "";
-    if(detection_client.call(det_srv))
+    bool flag;
+    if(robot==0)
+        flag = detection_client.call(det_srv);
+    else
+        flag = detection_client_right.call(det_srv);
+    if(flag)
     {
         ROS_INFO_STREAM("detection result is " << det_srv.response.result);
         isFinish = true;
@@ -613,7 +604,7 @@ void GraspPlace::calibration(std::vector<std::vector<geometry_msgs::PoseStamped>
 
     for(std::size_t i=0; i<poseName.size(); ++i)
     {
-        for(std::size_t j=0; j<poseName[0].size(); ++j)
+        for(std::size_t j=0; j<poseName[0].size() && ros::ok(); ++j)
         {
             if(isNowHavePoseFile)
                 setAndMove(getMoveGroup(i), pose[i][j]);
@@ -654,12 +645,12 @@ void GraspPlace::preprocessingPlacePose()
 }
 
 
-void GraspPlace::rmWall()
+void GraspPlace::rmObject(std::string name)
 {
     std::vector<moveit_msgs::CollisionObject> collision_objects;
     collision_objects.resize(1);
 
-    collision_objects[0].id = "wall";
+    collision_objects[0].id = name;
     collision_objects[0].operation = collision_objects[0].REMOVE;
     planning_scene_interface.applyCollisionObjects(collision_objects);
 }
@@ -670,7 +661,7 @@ void GraspPlace::removeOrAddObject()
     std::vector<moveit_msgs::CollisionObject> collision_objects;
     collision_objects.resize(1);
 
-    rmWall();
+    rmObject("wall");
 
     collision_objects[0].id = "wall";
     collision_objects[0].header.frame_id = "base_link";

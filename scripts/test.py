@@ -17,9 +17,9 @@ def callback(req):
     pose_object_info = ObjectInfo()
     msg = ObjectArray()
     pose_stamped.header.frame_id = "d435i_color_frame"
-    pose_stamped.pose.position.x = 0.03
+    pose_stamped.pose.position.x = 3
     pose_stamped.pose.position.y = 0
-    pose_stamped.pose.position.z = 0.20
+    pose_stamped.pose.position.z = 20
     pose_stamped.pose.orientation.w = 1
     pose_object_info.pose = pose_stamped
     msg.objects.append(pose_object_info)
@@ -40,7 +40,7 @@ def callback_right(req):
     pose_stamped.header.frame_id = "R_d435i_color_frame"
     pose_stamped.pose.position.x = 0
     pose_stamped.pose.position.y = 0
-    pose_stamped.pose.position.z = 0.20
+    pose_stamped.pose.position.z = 20
     pose_stamped.pose.orientation.w = 1
     pose_object_info.pose = pose_stamped
     msg.objects.append(pose_object_info)

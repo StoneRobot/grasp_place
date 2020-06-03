@@ -60,6 +60,21 @@ move_group1{group1}
 
 void GraspPlace::showObject(geometry_msgs::Pose pose)
 {
+    // moveit_msgs::AttachedCollisionObject attacheCollision;
+    // attacheCollision.link_name = "pick_gripper_link_0";
+    // attacheCollision.touch_links.push_back("pick_gripper_link_0");
+    // // attacheCollision.touch_links.push_back("pick_gripper_link_1");
+    // attacheCollision.object.id = "object";
+    // shape_msgs::SolidPrimitive solid;
+    // solid.type = solid.BOX;
+    // solid.dimensions.resize(3);
+    // solid.dimensions[0] = 0.033;
+    // solid.dimensions[1] = 0.033;
+    // solid.dimensions[2] = 0.07;
+    // attacheCollision.object.primitives.push_back(solid);
+    // attacheCollision.object.primitive_poses.push_back(pose);
+    // attacheCollision.object.operation = attacheCollision.object.ADD;
+
     std::vector<moveit_msgs::CollisionObject> collisionObject;
     collisionObject.resize(1);
     collisionObject[0].id = "object";
@@ -67,27 +82,38 @@ void GraspPlace::showObject(geometry_msgs::Pose pose)
     collisionObject[0].primitives.resize(1);
     collisionObject[0].primitives[0].type = collisionObject[0].primitives[0].BOX;
     collisionObject[0].primitives[0].dimensions.resize(3);
-    //"2 2 0.01 0 0.5 0.05
     collisionObject[0].primitives[0].dimensions[0] = 0.033;
     collisionObject[0].primitives[0].dimensions[1] = 0.033;
     collisionObject[0].primitives[0].dimensions[2] = 0.07;
 
     collisionObject[0].primitive_poses.resize(1);
+    collisionObject[0].primitive_poses[0].position.x = pose.position.x;
+    collisionObject[0].primitive_poses[0].position.y = pose.position.y;
+    collisionObject[0].primitive_poses[0].position.z = pose.position.z;
     collisionObject[0].primitive_poses[0].orientation.x = pose.orientation.x;
     collisionObject[0].primitive_poses[0].orientation.y = pose.orientation.y;
     collisionObject[0].primitive_poses[0].orientation.z = pose.orientation.z;
     collisionObject[0].primitive_poses[0].orientation.w = pose.orientation.w;
-    collisionObject[0].primitive_poses[0].position.x = pose.position.x;
-    collisionObject[0].primitive_poses[0].position.y = pose.position.y;
-    collisionObject[0].primitive_poses[0].position.z = pose.position.z;
-
     collisionObject[0].operation = moveit_msgs::CollisionObject::ADD;
+
     moveit_msgs::PlanningScene p;
     p.world.collision_objects.push_back(collisionObject[0]);
     p.is_diff = true;
     p.robot_state.is_diff = true;
     planning_scene_diff_publisher.publish(p);
-    ros::Duration(0.1).sleep();
+    ros::Duration(1).sleep();
+
+    // std::string cmd0 = "rosrun rubik_cube_solve add 0.03 0.03 0.07";
+    // cmd0 = cmd0 +   " " + std::to_string(pose.position.x) + 
+    //                 " " + std::to_string(pose.position.y) + 
+    //                 " " + std::to_string(pose.position.z) + 
+    //                 " " + std::to_string(pose.orientation.x) + 
+    //                 " " + std::to_string(pose.orientation.y) + 
+    //                 " " + std::to_string(pose.orientation.z) + 
+    //                 " " + std::to_string(pose.orientation.w) + " world object false";
+    // ROS_INFO_STREAM(cmd0);
+    // system(cmd0.c_str());
+
 }
 
 
@@ -116,6 +142,9 @@ bool GraspPlace::transformFrame(geometry_msgs::PoseStamped& poseStamped, std::st
     poseStamped = worldFramePose[0];
     delete[] worldFramePose;
     delete[] otherFramePose;
+    // poseStamped.pose.position.y -= 0.025;
+    // poseStamped.pose.position.x -= 0.015;
+    poseStamped.pose.position.z += 0.025;
     if(poseStamped.header.frame_id == "world")
     {
         return true;
@@ -145,7 +174,7 @@ void GraspPlace:: robotMoveCartesianUnit2(moveit::planning_interface::MoveGroupI
     std::vector<geometry_msgs::Pose> waypoints;
     waypoints.push_back(target_pose);
     moveit_msgs::RobotTrajectory trajectory;
-    while( group.computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory) < 1.0 && !isStop);
+    while( group.computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory) < 0.75 && !isStop && ros::ok());
     moveit::planning_interface::MoveGroupInterface::Plan plan;
     plan.trajectory_ = trajectory;
     if(!isStop)
@@ -176,6 +205,7 @@ bool GraspPlace::closeGripper(moveit::planning_interface::MoveGroupInterface& mo
             ROS_INFO("arm1 closeGripper ");
             flag = closeGripper_client1.call(srv);
         }
+        ros::Duration(2.0).sleep();
    }
     return flag;
 }
@@ -196,6 +226,7 @@ bool GraspPlace::openGripper(moveit::planning_interface::MoveGroupInterface& mov
             ROS_INFO("arm1 openGripper ");
             flag = openGripper_client1.call(srv);
         }
+        ros::Duration(2.0).sleep();
    }
     return flag;
 }
@@ -210,7 +241,18 @@ void GraspPlace::PickPlace(int robotNum, geometry_msgs::PoseStamped& pose, bool 
     getMoveGroup(robotNum).setStartStateToCurrentState();
     ros::Duration(0.1).sleep();
     
-    setAndMove(getMoveGroup(robotNum), pose);
+    // setAndMove(getMoveGroup(robotNum), pose);
+
+    getMoveGroup(robotNum).setPoseTarget(pose);
+    moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+    while (ros::ok() && !isStop)
+    {
+        if(getMoveGroup(robotNum).plan(my_plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS)
+        {
+            getMoveGroup(robotNum).execute(my_plan);
+            break;
+        }
+    }
     if(isPick)
     { 
         //Z AXIS
@@ -377,9 +419,12 @@ void GraspPlace::objectCallBack(const hirop_msgs::ObjectArray::ConstPtr& msg)
 {
     nh.setParam("/grasp_place/isGetObject", true);
     std::string home = "home";
-    for(std::size_t i=0; i < msg->objects.size() && !isStop; ++i)
+    for(std::size_t i=0; i < msg->objects.size() && !isStop && ros::ok(); ++i)
     {
         geometry_msgs::PoseStamped pose = msg->objects[i].pose;
+        pose.pose.position.x *= 0.01;
+        pose.pose.position.y *= 0.01;
+        pose.pose.position.z *= 0.01;
         ROS_INFO_STREAM("not transform pick pose: " << pose);
         transformFrame(pose);
         ROS_INFO_STREAM("transform pick pose: " << pose);
@@ -457,6 +502,7 @@ void GraspPlace::pick(geometry_msgs::PoseStamped pose)
     {
         orientation.setRPY(0, 0, 3.14);
         pose.pose.orientation = tf2::toMsg(orientation);
+        showObject(pose.pose);
         pose.pose.position.x += prepare_some_distance;
         pre_grasp_approach[0] = -1;
         post_grasp_retreat[0] = 1;
@@ -465,12 +511,12 @@ void GraspPlace::pick(geometry_msgs::PoseStamped pose)
     {
         orientation.setRPY(0, 0, pow(-1, pickData.pickRobot)*1.57);
         pose.pose.orientation = tf2::toMsg(orientation);
+        showObject(pose.pose);
         pose.pose.position.y -= pow(-1, pickData.pickRobot)*prepare_some_distance;
         pre_grasp_approach[1] = pow(-1, pickData.pickRobot);
         post_grasp_retreat[2] = 1;
     }
     ROS_INFO_STREAM("pick pose: " << pose);
-    showObject(pose.pose);
     PickPlace(pickData.pickRobot, pose, true, pre_grasp_approach, post_grasp_retreat);
 }
 
@@ -602,7 +648,7 @@ bool GraspPlace::loadPickObjectName()
 void GraspPlace::calibration(std::vector<std::vector<geometry_msgs::PoseStamped> > pose, std::vector<std::vector<std::string> > poseName, std::string folder, bool isNowHavePoseFile)
 {
 
-    for(std::size_t i=0; i<poseName.size(); ++i)
+    for(std::size_t i=0; i<poseName.size()&& ros::ok(); ++i)
     {
         for(std::size_t j=0; j<poseName[0].size() && ros::ok(); ++j)
         {
@@ -628,9 +674,9 @@ void GraspPlace::calibrationPlace(bool isNowHavePoseFile)
 
 void GraspPlace::preprocessingPlacePose()
 {
-    for(std::size_t i=0; i<placePoses.size(); ++i)
+    for(std::size_t i=0; i<placePoses.size()&& ros::ok(); ++i)
     {
-        for(std::size_t j=0; j<placePoses[0].size(); ++j)
+        for(std::size_t j=0; j<placePoses[0].size()&& ros::ok(); ++j)
         {
             if(j < 2)
             {

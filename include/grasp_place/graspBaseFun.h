@@ -12,6 +12,7 @@
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
 #include <moveit/planning_scene/planning_scene.h>
 #include <moveit_msgs/CollisionObject.h>
+#include <moveit_msgs/ApplyPlanningScene.h>
 
 
 // #include "rubik_cube_solve/rubik_cube_solve_cmd.h"

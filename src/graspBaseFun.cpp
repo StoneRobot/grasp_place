@@ -143,7 +143,7 @@ bool GraspPlace::transformFrame(geometry_msgs::PoseStamped& poseStamped, std::st
     delete[] worldFramePose;
     delete[] otherFramePose;
     // poseStamped.pose.position.y -= 0.025;
-    // poseStamped.pose.position.x -= 0.015;
+    poseStamped.pose.position.x -= 0.015;
     poseStamped.pose.position.z += 0.025;
     if(poseStamped.header.frame_id == "world")
     {
@@ -408,7 +408,6 @@ bool GraspPlace::getPickDataCallBack(rb_msgAndSrv::rb_ArrayAndBool::Request& req
     {
         // 运动结束反馈
         nh.setParam("/isRuning_grab", false);
-        ROS_INFO_STREAM("set 'isStop' false");
         isStop = false;
         rmObject("object");
     }

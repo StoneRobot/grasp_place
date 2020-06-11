@@ -85,8 +85,9 @@ public:
     void removeOrAddObject();
     // std::string showTF(geometry_msgs::PoseStamped pose);
     void stopMove();
-    void backHome();
+    void backHome(int robotNum);
     void rmObject(std::string name);
+    void stopAndBackHome(int robotNum);
 private:
     bool writePoseOnceFile(const std::string& name, const geometry_msgs::PoseStamped& pose);
     bool addData(geometry_msgs::PoseStamped& pose, YAML::Node node);
@@ -98,6 +99,7 @@ private:
     void sotpMoveCallback(const std_msgs::Bool::ConstPtr& msg);
     // 0 爲檢測, 1 爲放置, 2, 3同是, 只是之前沒有點位文件, 或不用點位文件.
     void calibrationCallBack(const std_msgs::Int8::ConstPtr& msg);
+    void backHomeCallback(const std_msgs::Int8::ConstPtr& msg);
     
     bool getPickDataCallBack(rb_msgAndSrv::rb_ArrayAndBool::Request& req, rb_msgAndSrv::rb_ArrayAndBool::Response& rep);
     // bool sotpMoveCallBack(std_srvs::Empty::Request& req, std_srvs::Empty::Response& rep);
@@ -121,6 +123,7 @@ private:
     ros::Subscriber poseSubRight;
     ros::Subscriber calibrationSub;
     ros::Subscriber stopMoveSub;
+    ros::Subscriber backHomeSub;
 
     ros::Publisher Object_pub;
     ros::Publisher planning_scene_diff_publisher;
@@ -142,4 +145,7 @@ private:
     std::string placePosesPath = "placePoses";
     // 为true时停止
     bool isStop;
+    bool isBackHome;
+    bool isDetection;
+    bool isGrasp;
 };

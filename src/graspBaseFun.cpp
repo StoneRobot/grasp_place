@@ -25,6 +25,7 @@ move_group1{group1}
     poseSubRight = nh.subscribe("UR52/object_array", 1, &GraspPlace::objectCallBack, this);
     calibrationSub = nh.subscribe("calibration", 1, &GraspPlace::calibrationCallBack, this);
     stopMoveSub = nh.subscribe("/stop_move", 1, &GraspPlace::sotpMoveCallback, this);
+    backHomeSub = nh.subscribe("/back_home", 1, &GraspPlace::backHomeCallback, this);
 
     move_group0.setMaxAccelerationScalingFactor(0.1);
     move_group1.setMaxAccelerationScalingFactor(0.1);
@@ -55,6 +56,15 @@ move_group1{group1}
         loadPickObjectName();
         preprocessingPlacePose();
     }
+    isGrasp = false;
+    isDetection = false;
+}
+
+void GraspPlace::backHomeCallback(const std_msgs::Int8::ConstPtr& msg)
+{
+
+    stopAndBackHome(msg->data);
+
 }
 
 
@@ -241,18 +251,18 @@ void GraspPlace::PickPlace(int robotNum, geometry_msgs::PoseStamped& pose, bool 
     getMoveGroup(robotNum).setStartStateToCurrentState();
     ros::Duration(0.1).sleep();
     
-    // setAndMove(getMoveGroup(robotNum), pose);
+    setAndMove(getMoveGroup(robotNum), pose);
 
-    getMoveGroup(robotNum).setPoseTarget(pose);
-    moveit::planning_interface::MoveGroupInterface::Plan my_plan;
-    while (ros::ok() && !isStop)
-    {
-        if(getMoveGroup(robotNum).plan(my_plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS)
-        {
-            getMoveGroup(robotNum).execute(my_plan);
-            break;
-        }
-    }
+    // getMoveGroup(robotNum).setPoseTarget(pose);
+    // moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+    // while (ros::ok() && !isStop)
+    // {
+    //     if(getMoveGroup(robotNum).plan(my_plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS)
+    //     {
+    //         getMoveGroup(robotNum).execute(my_plan);
+    //         break;
+    //     }
+    // }
     if(isPick)
     { 
         //Z AXIS
@@ -332,19 +342,23 @@ moveit::planning_interface::MoveItErrorCode GraspPlace::loop_move(moveit::planni
     return code;
 }
 
-void GraspPlace::backHome()
+void GraspPlace::backHome(int robot=2)
 {
-    if(!isStop)
+    if(!isStop || isBackHome)
     {
+        isBackHome = false;
         ROS_INFO_STREAM("back home");
-        const std::string home = "home" + std::to_string(pickData.pickRobot);
-        getMoveGroup(pickData.pickRobot).setNamedTarget(home);
-        getMoveGroup(pickData.pickRobot).move();
+        if(robot == 2)
+            robot = pickData.pickRobot;
+        const std::string home = "home" + std::to_string(robot);
+        getMoveGroup(robot).setNamedTarget(home);
+        getMoveGroup(robot).move();
     }
 }
 
 bool GraspPlace::getPickDataCallBack(rb_msgAndSrv::rb_ArrayAndBool::Request& req, rb_msgAndSrv::rb_ArrayAndBool::Response& rep)
 {
+    isDetection = true;
     nh.setParam("/isRuning_grab", true);
     bool isGetObject;
     ROS_INFO_STREAM("into callback function");
@@ -411,11 +425,13 @@ bool GraspPlace::getPickDataCallBack(rb_msgAndSrv::rb_ArrayAndBool::Request& req
         isStop = false;
         rmObject("object");
     }
+    isDetection = false;
     return rep.respond;
 }
 
 void GraspPlace::objectCallBack(const hirop_msgs::ObjectArray::ConstPtr& msg)
 {
+    isGrasp = true;
     nh.setParam("/grasp_place/isGetObject", true);
     std::string home = "home";
     for(std::size_t i=0; i < msg->objects.size() && !isStop && ros::ok(); ++i)
@@ -433,6 +449,7 @@ void GraspPlace::objectCallBack(const hirop_msgs::ObjectArray::ConstPtr& msg)
     rmObject("wall");
     // 运动结束反馈
     isStop = false;
+    isGrasp = false;
     nh.setParam("/isRuning_grab", false);
 }
 
@@ -638,7 +655,7 @@ bool GraspPlace::loadPickObjectName()
     for(std::size_t i=0; i<detectionObjectNum; ++i)
     {
         paramName = namePrefix + std::to_string(i);
-        nh.getParam("/grasp_place" + paramName, objectName);
+        nh.getParam("/grasp_place/" + paramName, objectName);
         pickObjectName.push_back(objectName);
         ROS_INFO_STREAM(pickObjectName[i]);
     }
@@ -749,4 +766,15 @@ void GraspPlace::stopMove()
 void GraspPlace::sotpMoveCallback(const std_msgs::Bool::ConstPtr& msg)
 {
     stopMove();
+}
+
+void  GraspPlace::stopAndBackHome(int robotNum)
+{
+    stopMove();
+    isBackHome = true;
+    if(!isGrasp && !isDetection)
+    {
+        ROS_INFO("go to back home");
+        backHome(robotNum);
+    }
 }

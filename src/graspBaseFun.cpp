@@ -16,9 +16,10 @@ move_group1{group1}
     detection_client = nh.serviceClient<hirop_msgs::detection>("UR51/detection");
     detection_client_right = nh.serviceClient<hirop_msgs::detection>("UR52/detection");
 
-    Object_pub = nh.advertise<hirop_msgs::ObjectArray>("object_array", 1);
+    // Object_pub = nh.advertise<hirop_msgs::ObjectArray>("object_array", 1);
     planning_scene_diff_publisher = nh.advertise<moveit_msgs::PlanningScene>("planning_scene", 1);
     getPickData  = nh.advertiseService("/Rb_grepSetCommand", &GraspPlace::getPickDataCallBack, this);
+    record_pose = nh.advertiseService("record_grasp_place_pose", &GraspPlace::recordPoseCallBack, this);
     // stop_move = nh.advertiseService("stop_move", &GraspPlace::sotpMoveCallBack, this);
  
     poseSub = nh.subscribe("/UR51/object_array", 1, &GraspPlace::objectCallBack, this);
@@ -70,21 +71,6 @@ void GraspPlace::backHomeCallback(const std_msgs::Int8::ConstPtr& msg)
 
 void GraspPlace::showObject(geometry_msgs::Pose pose)
 {
-    // moveit_msgs::AttachedCollisionObject attacheCollision;
-    // attacheCollision.link_name = "pick_gripper_link_0";
-    // attacheCollision.touch_links.push_back("pick_gripper_link_0");
-    // // attacheCollision.touch_links.push_back("pick_gripper_link_1");
-    // attacheCollision.object.id = "object";
-    // shape_msgs::SolidPrimitive solid;
-    // solid.type = solid.BOX;
-    // solid.dimensions.resize(3);
-    // solid.dimensions[0] = 0.033;
-    // solid.dimensions[1] = 0.033;
-    // solid.dimensions[2] = 0.07;
-    // attacheCollision.object.primitives.push_back(solid);
-    // attacheCollision.object.primitive_poses.push_back(pose);
-    // attacheCollision.object.operation = attacheCollision.object.ADD;
-
     std::vector<moveit_msgs::CollisionObject> collisionObject;
     collisionObject.resize(1);
     collisionObject[0].id = "object";
@@ -112,18 +98,6 @@ void GraspPlace::showObject(geometry_msgs::Pose pose)
     p.robot_state.is_diff = true;
     planning_scene_diff_publisher.publish(p);
     ros::Duration(1).sleep();
-
-    // std::string cmd0 = "rosrun rubik_cube_solve add 0.03 0.03 0.07";
-    // cmd0 = cmd0 +   " " + std::to_string(pose.position.x) + 
-    //                 " " + std::to_string(pose.position.y) + 
-    //                 " " + std::to_string(pose.position.z) + 
-    //                 " " + std::to_string(pose.orientation.x) + 
-    //                 " " + std::to_string(pose.orientation.y) + 
-    //                 " " + std::to_string(pose.orientation.z) + 
-    //                 " " + std::to_string(pose.orientation.w) + " world object false";
-    // ROS_INFO_STREAM(cmd0);
-    // system(cmd0.c_str());
-
 }
 
 
@@ -133,6 +107,8 @@ bool GraspPlace::transformFrame(geometry_msgs::PoseStamped& poseStamped, std::st
     geometry_msgs::PoseStamped* worldFramePose = new geometry_msgs::PoseStamped[1];
     geometry_msgs::PoseStamped* otherFramePose = new geometry_msgs::PoseStamped[1];
     tf::TransformListener listener;
+
+    // poseStamped.pose.position.z = -poseStamped.pose.position.z;
 
     otherFramePose[0] = poseStamped;
     for(int i=0; i < 5; ++i)
@@ -152,9 +128,16 @@ bool GraspPlace::transformFrame(geometry_msgs::PoseStamped& poseStamped, std::st
     poseStamped = worldFramePose[0];
     delete[] worldFramePose;
     delete[] otherFramePose;
+    double add[3] = {0};
+    nh.getParam("/grasp_place/position_x_add", add[0]);
+    nh.getParam("/grasp_place/position_y_add", add[1]);
+    nh.getParam("/grasp_place/position_z_add", add[2]);
     // poseStamped.pose.position.y -= 0.025;
-    poseStamped.pose.position.x -= 0.015;
-    poseStamped.pose.position.z += 0.025;
+    if(pickData.pickMode == 0)
+        (poseStamped.pose.position.z > 1.56) ? poseStamped.pose.position.z = 1.63 : poseStamped.pose.position.z = 1.38;
+    poseStamped.pose.position.x += add[0];
+    poseStamped.pose.position.y += add[1];
+    poseStamped.pose.position.z += add[2];
     if(poseStamped.header.frame_id == "world")
     {
         return true;
@@ -253,16 +236,7 @@ void GraspPlace::PickPlace(int robotNum, geometry_msgs::PoseStamped& pose, bool 
     
     setAndMove(getMoveGroup(robotNum), pose);
 
-    // getMoveGroup(robotNum).setPoseTarget(pose);
-    // moveit::planning_interface::MoveGroupInterface::Plan my_plan;
-    // while (ros::ok() && !isStop)
-    // {
-    //     if(getMoveGroup(robotNum).plan(my_plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS)
-    //     {
-    //         getMoveGroup(robotNum).execute(my_plan);
-    //         break;
-    //     }
-    // }
+
     if(isPick)
     { 
         //Z AXIS
@@ -436,15 +410,27 @@ void GraspPlace::objectCallBack(const hirop_msgs::ObjectArray::ConstPtr& msg)
     std::string home = "home";
     for(std::size_t i=0; i < msg->objects.size() && !isStop && ros::ok(); ++i)
     {
+        std::string  cmd0 = "rosservice call /UR5" + std::to_string(pickData.pickRobot + 1) + "/set_robot_enable \"enable: true\"";
+        std::string  cmd1 = "rosservice call /UR5" + std::to_string(pickData.pickRobot + 1) + "/set_robot_enable \"enable: true\"";
+        system(cmd0.c_str());
         geometry_msgs::PoseStamped pose = msg->objects[i].pose;
-        pose.pose.position.x *= 0.01;
-        pose.pose.position.y *= 0.01;
-        pose.pose.position.z *= 0.01;
+        pose.pose.position.z = abs(pose.pose.position.z);
+        if(pose.pose.position.z > 1)
+        {
+            pose.pose.position.x *= 0.01;
+            pose.pose.position.y *= 0.01;
+            pose.pose.position.z *= 0.01;
+        }
         ROS_INFO_STREAM("not transform pick pose: " << pose);
         transformFrame(pose);
         ROS_INFO_STREAM("transform pick pose: " << pose);
-        // system();
-        pickPlaceObject(pose);
+        bool isOnlyShow;
+        nh.getParam("/grasp_place/isOnlyShow", isOnlyShow);
+        if(isOnlyShow)
+            showObject(pose.pose);
+        else
+            pickPlaceObject(pose);
+        system(cmd1.c_str());
     }
     rmObject("wall");
     // 运动结束反馈
@@ -599,6 +585,13 @@ bool GraspPlace::addData(geometry_msgs::PoseStamped& pose, YAML::Node node)
         // std::cerr << e.what() << '\n';
         return false;
     }
+}
+
+bool GraspPlace::recordPoseCallBack(rubik_cube_solve::recordPoseStamped::Request& req, rubik_cube_solve::recordPoseStamped::Response& rep)
+{
+    recordPose(req.robot, req.PoseName, req.isJointSpace, "recordPose");
+    rep.isFinish = true;
+    return true;
 }
 
 bool GraspPlace::recordPose(int robotNum, std::string name, bool isJointSpace, std::string folder="recordPose")
@@ -776,5 +769,6 @@ void  GraspPlace::stopAndBackHome(int robotNum)
     {
         ROS_INFO("go to back home");
         backHome(robotNum);
+        isBackHome = false;
     }
 }

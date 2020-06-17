@@ -14,10 +14,8 @@
 #include <moveit_msgs/CollisionObject.h>
 #include <moveit_msgs/ApplyPlanningScene.h>
 
+#include "rubik_cube_solve/recordPoseStamped.h"
 
-// #include "rubik_cube_solve/rubik_cube_solve_cmd.h"
-// #include "rubik_cube_solve/end_effector_motion.h"
-// #include "rubik_cube_solve/recordPoseStamped.h"
 #include "hirop_msgs/openGripper.h"
 #include "hirop_msgs/closeGripper.h"
 #include "cubeParse/TakePhoto.h"
@@ -102,7 +100,7 @@ private:
     void backHomeCallback(const std_msgs::Int8::ConstPtr& msg);
     
     bool getPickDataCallBack(rb_msgAndSrv::rb_ArrayAndBool::Request& req, rb_msgAndSrv::rb_ArrayAndBool::Response& rep);
-    // bool sotpMoveCallBack(std_srvs::Empty::Request& req, std_srvs::Empty::Response& rep);
+    bool recordPoseCallBack(rubik_cube_solve::recordPoseStamped::Request& req, rubik_cube_solve::recordPoseStamped::Response& rep);
  
     ros::NodeHandle nh;
     moveit::planning_interface::MoveGroupInterface& move_group0;
@@ -117,6 +115,7 @@ private:
     ros::ServiceClient detection_client_right;
 
     ros::ServiceServer getPickData;
+    ros::ServiceServer record_pose;
     // ros::ServiceServer stop_move;
 
     ros::Subscriber poseSub;

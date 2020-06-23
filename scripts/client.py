@@ -8,4 +8,4 @@ rospy.init_node("cli_test")
 client = rospy.ServiceProxy("Rb_grepSetCommand", rb_ArrayAndBool)
 # a = rb_ArrayAndBool()
 # a.data = 
-client.call([0, 0, 1])
+print(client.call([0, 0, 1]))

@@ -80,7 +80,7 @@ void GraspPlace::showObject(geometry_msgs::Pose pose)
     collisionObject[0].primitives[0].dimensions.resize(3);
     collisionObject[0].primitives[0].dimensions[0] = 0.033;
     collisionObject[0].primitives[0].dimensions[1] = 0.033;
-    collisionObject[0].primitives[0].dimensions[2] = 0.07;
+    collisionObject[0].primitives[0].dimensions[2] = 0.106;
 
     collisionObject[0].primitive_poses.resize(1);
     collisionObject[0].primitive_poses[0].position.x = pose.position.x;
@@ -132,9 +132,9 @@ bool GraspPlace::transformFrame(geometry_msgs::PoseStamped& poseStamped, std::st
     nh.getParam("/grasp_place/position_x_add", add[0]);
     nh.getParam("/grasp_place/position_y_add", add[1]);
     nh.getParam("/grasp_place/position_z_add", add[2]);
-    // poseStamped.pose.position.y -= 0.025;
     if(pickData.pickMode == 0)
-        (poseStamped.pose.position.z > 1.56) ? poseStamped.pose.position.z = 1.63 : poseStamped.pose.position.z = 1.38;
+        poseStamped.pose.position.z = 1.632;
+    //     (poseStamped.pose.position.z > 1.56) ? poseStamped.pose.position.z = 1.63 : poseStamped.pose.position.z = 1.38;
     poseStamped.pose.position.x += add[0];
     poseStamped.pose.position.y += add[1];
     poseStamped.pose.position.z += add[2];
@@ -332,6 +332,7 @@ void GraspPlace::backHome(int robot=2)
 
 bool GraspPlace::getPickDataCallBack(rb_msgAndSrv::rb_ArrayAndBool::Request& req, rb_msgAndSrv::rb_ArrayAndBool::Response& rep)
 {
+    isStop = false;
     isDetection = true;
     nh.setParam("/isRuning_grab", true);
     bool isGetObject;
@@ -408,19 +409,18 @@ void GraspPlace::objectCallBack(const hirop_msgs::ObjectArray::ConstPtr& msg)
     isGrasp = true;
     nh.setParam("/grasp_place/isGetObject", true);
     std::string home = "home";
+    std::string  cmd0 = "rosservice call /UR5" + std::to_string(pickData.pickRobot + 1) + "/set_robot_enable \"enable: false\"";
+    std::string  cmd1 = "rosservice call /UR5" + std::to_string(pickData.pickRobot + 1) + "/set_robot_enable \"enable: true\"";
     for(std::size_t i=0; i < msg->objects.size() && !isStop && ros::ok(); ++i)
     {
-        std::string  cmd0 = "rosservice call /UR5" + std::to_string(pickData.pickRobot + 1) + "/set_robot_enable \"enable: true\"";
-        std::string  cmd1 = "rosservice call /UR5" + std::to_string(pickData.pickRobot + 1) + "/set_robot_enable \"enable: true\"";
-        system(cmd0.c_str());
         geometry_msgs::PoseStamped pose = msg->objects[i].pose;
-        pose.pose.position.z = abs(pose.pose.position.z);
-        if(pose.pose.position.z > 1)
-        {
-            pose.pose.position.x *= 0.01;
-            pose.pose.position.y *= 0.01;
-            pose.pose.position.z *= 0.01;
-        }
+        // pose.pose.position.z = abs(pose.pose.position.z);
+        // if(pose.pose.position.z > 1)
+        // {
+        //     pose.pose.position.x *= 0.01;
+        //     pose.pose.position.y *= 0.01;
+        //     pose.pose.position.z *= 0.01;
+        // }
         ROS_INFO_STREAM("not transform pick pose: " << pose);
         transformFrame(pose);
         ROS_INFO_STREAM("transform pick pose: " << pose);
@@ -430,13 +430,15 @@ void GraspPlace::objectCallBack(const hirop_msgs::ObjectArray::ConstPtr& msg)
             showObject(pose.pose);
         else
             pickPlaceObject(pose);
-        system(cmd1.c_str());
+        ROS_INFO_STREAM(cmd0);
     }
     rmObject("wall");
     // 运动结束反馈
     isStop = false;
     isGrasp = false;
     nh.setParam("/isRuning_grab", false);
+    system(cmd0.c_str());
+    system(cmd1.c_str());
 }
 
 void GraspPlace::pickPlaceObject(geometry_msgs::PoseStamped pickPose)
@@ -449,6 +451,8 @@ void GraspPlace::pickPlaceObject(geometry_msgs::PoseStamped pickPose)
 
 bool GraspPlace::detectionObject(int objectNum, int robot)
 {
+    if(isStop)
+        return false;
     bool isFinish;
     hirop_msgs::detection det_srv;
     det_srv.request.objectName = pickObjectName[objectNum];
@@ -758,6 +762,7 @@ void GraspPlace::stopMove()
 
 void GraspPlace::sotpMoveCallback(const std_msgs::Bool::ConstPtr& msg)
 {
+    isBackHome = false;
     stopMove();
 }
 

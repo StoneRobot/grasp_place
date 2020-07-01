@@ -133,8 +133,8 @@ bool GraspPlace::transformFrame(geometry_msgs::PoseStamped& poseStamped, std::st
     nh.getParam("/grasp_place/position_y_add", add[1]);
     nh.getParam("/grasp_place/position_z_add", add[2]);
     if(pickData.pickMode == 0)
-        poseStamped.pose.position.z = 1.632;
-    //     (poseStamped.pose.position.z > 1.56) ? poseStamped.pose.position.z = 1.63 : poseStamped.pose.position.z = 1.38;
+        (poseStamped.pose.position.z > 1.56) ? poseStamped.pose.position.z = 1.632 : poseStamped.pose.position.z = 1.38;
+        // poseStamped.pose.position.z = 1.632;
     poseStamped.pose.position.x += add[0];
     poseStamped.pose.position.y += add[1];
     poseStamped.pose.position.z += add[2];

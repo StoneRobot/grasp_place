@@ -328,6 +328,7 @@ void GraspPlace::backHome(int robot=2)
         getMoveGroup(robot).setNamedTarget(home);
         getMoveGroup(robot).move();
     }
+    nh.setParam("/isRuning_grab", false);
 }
 
 bool GraspPlace::getPickDataCallBack(rb_msgAndSrv::rb_ArrayAndBool::Request& req, rb_msgAndSrv::rb_ArrayAndBool::Response& rep)
@@ -758,6 +759,7 @@ void GraspPlace::stopMove()
     move_group0.stop();
     move_group1.stop();
     isStop = true;
+    nh.setParam("/isRuning_grab", false);
 }
 
 void GraspPlace::sotpMoveCallback(const std_msgs::Bool::ConstPtr& msg)

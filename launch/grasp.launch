@@ -4,7 +4,7 @@
 
     <node pkg="grasp_place" type="grasp" name="grasp_place" output="screen">
         <rosparam command="load" file="$(find grasp_place)/config/pickObjectNames.yaml" />
-        <param name="detectionObjectNum" type="int" value="2" />
+        <param name="detectionObjectNum" type="int" value="4" />
         <param name="isGetObject" type="bool" value="false" />
         <param name="pkg_path" type="str" value="$(find grasp_place)" />
         <param name="isLoadPose" type="bool" value="true" />

@@ -14,6 +14,8 @@
 #include <moveit_msgs/CollisionObject.h>
 #include <moveit_msgs/ApplyPlanningScene.h>
 
+#include <grasp_place/loadPose.h>
+
 #include "rubik_cube_solve/recordPoseStamped.h"
 
 #include "hirop_msgs/openGripper.h"
@@ -56,12 +58,12 @@ public:
 
     void showObject(geometry_msgs::Pose pose);
     bool transformFrame(geometry_msgs::PoseStamped& poseStamped, std::string frame_id);
-    void robotMoveCartesianUnit2(moveit::planning_interface::MoveGroupInterface &group, double x, double y, double z);
+    bool robotMoveCartesianUnit2(moveit::planning_interface::MoveGroupInterface &group, double x, double y, double z);
     moveit::planning_interface::MoveGroupInterface& getMoveGroup(int num);
     bool closeGripper(moveit::planning_interface::MoveGroupInterface& move_group);
     bool openGripper(moveit::planning_interface::MoveGroupInterface& move_group);
 
-    void PickPlace(int robotNum, geometry_msgs::PoseStamped& pose, bool isPick, int pre_grasp_approach[], int post_grasp_retreat[]);
+    bool PickPlace(int robotNum, geometry_msgs::PoseStamped& pose, bool isPick, int pre_grasp_approach[], int post_grasp_retreat[]);
     moveit::planning_interface::MoveItErrorCode setAndMove(moveit::planning_interface::MoveGroupInterface& move_group, \
                                                                         geometry_msgs::PoseStamped& poseStamped);
     moveit::planning_interface::MoveItErrorCode moveGroupPlanAndMove(moveit::planning_interface::MoveGroupInterface& move_group, \
@@ -69,8 +71,8 @@ public:
 
     moveit::planning_interface::MoveItErrorCode loop_move(moveit::planning_interface::MoveGroupInterface& move_group);
     bool detectionObject(int objectNum, int robot);
-    void pick(geometry_msgs::PoseStamped pose);
-    void place(); 
+    bool pick(geometry_msgs::PoseStamped pose);
+    bool place(); 
 
     bool loadPose(std::string folder, std::vector<std::vector<std::string> > filePathParam, std::vector<std::vector<geometry_msgs::PoseStamped> >& pose);
     bool loadPickObjectName();
@@ -86,13 +88,26 @@ public:
     void backHome(int robotNum);
     void rmObject(std::string name);
     void stopAndBackHome(int robotNum);
+    void setStartState(moveit::planning_interface::MoveGroupInterface& move_group);
+
+    bool move(moveit::planning_interface::MoveGroupInterface& move_group, \
+                                geometry_msgs::PoseStamped& poseStamped);
 private:
+    /**
+     * @param RPY 
+     * 0 货架
+     * 1 左机器人
+     * 2 右机器人
+    */
+    geometry_msgs::PoseStamped changeOrientation(geometry_msgs::PoseStamped& pose, int RPY);
+
+    bool code2bool(moveit::planning_interface::MoveItErrorCode code);
     bool writePoseOnceFile(const std::string& name, const geometry_msgs::PoseStamped& pose);
     bool addData(geometry_msgs::PoseStamped& pose, YAML::Node node);
     bool recordPose(int robotNum, std::string name, bool isJointSpace, std::string folder);
 
     void objectCallBack(const hirop_msgs::ObjectArray::ConstPtr& msg);
-    void pickPlaceObject(geometry_msgs::PoseStamped pickPose);
+    bool pickPlaceObject(geometry_msgs::PoseStamped pickPose);
     
     void sotpMoveCallback(const std_msgs::Bool::ConstPtr& msg);
     // 0 爲檢測, 1 爲放置, 2, 3同是, 只是之前沒有點位文件, 或不用點位文件.
@@ -126,19 +141,35 @@ private:
 
     ros::Publisher Object_pub;
     ros::Publisher planning_scene_diff_publisher;
+    ros::Publisher pickPlace_pub; 
 
     graspBaseFun pickData;
-    const double prepare_some_distance = 0.08;
+    const double prepare_some_distance = 0.11;
     std::vector<std::string> pickObjectName;
 
     std::vector<std::vector<std::string> > detectionPosesName = {{"detect0ShelfTop", "detect0ShelfBottom", "detect0table"},
                                                     {"detect1ShelfTop", "detect1ShelfBottom", "detect1table"}};
 
-    std::vector<std::vector<std::string> > placePosesName = {{"robot0table0", "robot0table1", "robot0shelf0", "robot0shelf1"},
-                                                    {"robot1table0", "robot1table1", "robot1shelf0", "robot1shelf1"}};
+    std::vector<std::vector<std::string> > placePosesName = {{"robot0table0", "robot0table1", "robot0table2", "robot0shelf0", "robot0shelf1", "robot0shelf2"},
+                                                    {"robot1table0", "robot1table1", "robot1table2", "robot1shelf0", "robot1shelf1", "robot1shelf2"}};
 
     std::vector<std::vector<geometry_msgs::PoseStamped> > detectionPoses;
     std::vector<std::vector<geometry_msgs::PoseStamped> > placePoses;
+
+    /*****************************************/
+    recordLoadPose poseLoader;
+    geometry_msgs::PoseStamped placePosesShelf1;
+    int placePosesShelf1Cnt = 0;
+    geometry_msgs::PoseStamped placePosesShelf2;
+    int placePosesShelf2Cnt = 0;
+    geometry_msgs::PoseStamped placePoseTable;
+    int placePoseTableCnt = 0;
+    int poseCount = 3;
+    float poseDistance = 0.05;
+
+
+
+    /*****************************************/
     std::string pkgPath;
     std::string detectionPosesPath = "detectionPoses";
     std::string placePosesPath = "placePoses";

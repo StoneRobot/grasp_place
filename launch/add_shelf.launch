@@ -2,7 +2,7 @@
 <launch>
     <arg name="distance" default="0.883" />
     <node pkg="add_collision_object" type="add_collision_object" name="add_shelf" args="add_collision_object/meshes/shelf.stl shelf /world 
-        255 255 255 1 -0.76 $(arg distance) 1.02 0 0 -1.57" output="screen" />
+        255 255 255 1 -0.76 $(arg distance) 0.99054 0 0 -1.57" output="screen" />
 
     <node pkg="add_collision_object" type="add_collision_object" name="add_board" args="add_collision_object/meshes/board.stl board /world 
         255 255 255 1 -0.76 $(arg distance) 1.02 0 0 -1.57" output="screen" />

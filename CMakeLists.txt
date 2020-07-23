@@ -207,6 +207,8 @@ include_directories(
 
 
 add_executable(grasp
+  include/grasp_place/loadPose.h
+  src/loadPose.cpp
   include/grasp_place/graspBaseFun.h
   # include/grasp_place/grasplmpl.h
   # include/grasp_place/robotMultManager.h

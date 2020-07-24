@@ -93,13 +93,25 @@ public:
     bool move(moveit::planning_interface::MoveGroupInterface& move_group, \
                                 geometry_msgs::PoseStamped& poseStamped);
 private:
+
+    bool test(moveit::planning_interface::MoveGroupInterface& move_group, geometry_msgs::PoseStamped& poseStamped);
     /**
+     * @brief 设置机器人摆放物品的姿态
      * @param RPY 
      * 0 货架
      * 1 左机器人
      * 2 右机器人
     */
     geometry_msgs::PoseStamped changeOrientation(geometry_msgs::PoseStamped& pose, int RPY);
+
+    /**
+     * @brief 
+     * @param type 
+     * 0 货架
+     * 1 左机器人
+     * 2 右机器人
+    */
+    void preprocessingPlacePose(geometry_msgs::PoseStamped& pose, int type);
 
     bool code2bool(moveit::planning_interface::MoveItErrorCode code);
     bool writePoseOnceFile(const std::string& name, const geometry_msgs::PoseStamped& pose);
@@ -150,8 +162,8 @@ private:
     std::vector<std::vector<std::string> > detectionPosesName = {{"detect0ShelfTop", "detect0ShelfBottom", "detect0table"},
                                                     {"detect1ShelfTop", "detect1ShelfBottom", "detect1table"}};
 
-    std::vector<std::vector<std::string> > placePosesName = {{"robot0table0", "robot0table1", "robot0table2", "robot0shelf0", "robot0shelf1", "robot0shelf2"},
-                                                    {"robot1table0", "robot1table1", "robot1table2", "robot1shelf0", "robot1shelf1", "robot1shelf2"}};
+    std::vector<std::vector<std::string> > placePosesName = {{"robot0table0", "robot0table1", "robot0shelf0", "robot0shelf1"},
+                                                    {"robot1table0", "robot1table1", "robot1shelf0", "robot1shelf1"}};
 
     std::vector<std::vector<geometry_msgs::PoseStamped> > detectionPoses;
     std::vector<std::vector<geometry_msgs::PoseStamped> > placePoses;
@@ -166,10 +178,8 @@ private:
     int placePoseTableCnt = 0;
     int poseCount = 3;
     float poseDistance = 0.05;
-
-
-
     /*****************************************/
+
     std::string pkgPath;
     std::string detectionPosesPath = "detectionPoses";
     std::string placePosesPath = "placePoses";

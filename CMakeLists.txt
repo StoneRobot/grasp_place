@@ -210,11 +210,7 @@ add_executable(grasp
   include/grasp_place/loadPose.h
   src/loadPose.cpp
   include/grasp_place/graspBaseFun.h
-  # include/grasp_place/grasplmpl.h
-  # include/grasp_place/robotMultManager.h
   src/graspBaseFun.cpp
-  # src/grasplmpl.cpp
-  # src/robotMultManager.cpp
   src/main.cpp
 )
 add_dependencies(grasp ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})

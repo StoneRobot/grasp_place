@@ -50,6 +50,7 @@ move_group1{group1}
     detectionPoses[1].resize(PoseCount);
     /*******************************************/
     std::string path = pkgPath + "/placePoses/";
+    ROS_INFO(path.c_str());
     poseLoader.loadRobotPose(placePosesShelf1, path + "placePosesShelf1.yaml");
     poseLoader.loadRobotPose(placePosesShelf2, path + "placePosesShelf2.yaml");
     poseLoader.loadRobotPose(placePoseTable, path + "placePoseTable.yaml");
@@ -57,23 +58,27 @@ move_group1{group1}
 
     /*******************************************/
     placePoses.resize(2);
-    placePoses[0].resize(placePosesName.size());
-    placePoses[1].resize(placePosesName.size());
+    placePoses[0].resize(4);
+    placePoses[1].resize(4);
     bool isLoadPose;
     nh.getParam("/grasp_place/isLoadPose", isLoadPose);
     if(isLoadPose)
     {
         loadPose(detectionPosesPath, detectionPosesName, detectionPoses);
+        ROS_INFO("---------------------1");
         loadPose(placePosesPath, placePosesName, placePoses);
+        ROS_INFO("---------------------2");
         loadPickObjectName();
+        ROS_INFO("---------------------3");
         preprocessingPlacePose();
+        ROS_INFO("---------------------4");
     }
     /*******************************************/
     isGrasp = false;
     isDetection = false;
 }
 
-geometry_msgs::PoseStamped changeOrientation(geometry_msgs::PoseStamped& pose, int RPY)
+geometry_msgs::PoseStamped GraspPlace::changeOrientation(geometry_msgs::PoseStamped& pose, int RPY)
 {
     tf2::Quaternion orientation;
     if(RPY == 0)
@@ -94,9 +99,7 @@ geometry_msgs::PoseStamped changeOrientation(geometry_msgs::PoseStamped& pose, i
 
 void GraspPlace::backHomeCallback(const std_msgs::Int8::ConstPtr& msg)
 {
-
     stopAndBackHome(msg->data);
-
 }
 
 
@@ -334,11 +337,13 @@ bool GraspPlace::PickPlace(int robotNum, geometry_msgs::PoseStamped& pose, bool 
     return false;
 }
 
-bool GraspPlace::move(moveit::planning_interface::MoveGroupInterface& move_group, \
-                                geometry_msgs::PoseStamped& poseStamped)
+bool GraspPlace::test(moveit::planning_interface::MoveGroupInterface& move_group, geometry_msgs::PoseStamped& poseStamped)
 {
-    return code2bool(setAndMove(move_group, poseStamped));
+    move_group.setPoseTarget(poseStamped);
+    moveit::planning_interface::MoveGroupInterface::Plan plan;
+    return (move_group.plan(plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS);
 }
+
 
 void GraspPlace::setStartState(moveit::planning_interface::MoveGroupInterface& move_group)
 {
@@ -347,6 +352,12 @@ void GraspPlace::setStartState(moveit::planning_interface::MoveGroupInterface& m
     r.joint_state.position = joint;
     move_group.setStartState(r);
     move_group.setStartStateToCurrentState();
+}
+
+bool GraspPlace::move(moveit::planning_interface::MoveGroupInterface& move_group, \
+                                geometry_msgs::PoseStamped& poseStamped)
+{
+    return code2bool(setAndMove(move_group, poseStamped));
 }
 
 moveit::planning_interface::MoveItErrorCode GraspPlace::setAndMove(moveit::planning_interface::MoveGroupInterface& move_group, \
@@ -503,6 +514,21 @@ void GraspPlace::objectCallBack(const hirop_msgs::ObjectArray::ConstPtr& msg)
         geometry_msgs::PoseStamped pose = msg->objects[i].pose;
         ROS_INFO_STREAM("not transform pick pose: " << pose);
         transformFrame(pose);
+        if(!test(getMoveGroup(pickData.pickRobot), pose))
+        {
+            backHome(pickData.pickRobot);
+            rmObject("wall");
+            // 运动结束反馈
+            isStop = false;
+            isGrasp = false;
+            nh.setParam("/isRuning_grab", false);
+            system(cmd0.c_str());
+            system(cmd1.c_str());
+            std_msgs::Bool m;
+            m.data = flag;
+            pickPlace_pub.publish(m);
+            return ;
+        }
         ROS_INFO_STREAM("transform pick pose: " << pose);
         bool isOnlyShow;
         nh.getParam("/grasp_place/isOnlyShow", isOnlyShow);
@@ -582,27 +608,6 @@ bool GraspPlace::detectionObject(int objectNum, int robot)
     return isFinish;
 }
 
-
-
-void GraspPlace::calibrationCallBack(const std_msgs::Int8::ConstPtr& msg)
-{
-    switch (msg->data)
-    {
-    case 0:
-        calibrationDetection(true);
-        break;
-    case 1:
-        calibrationPlace(true);
-        break;
-    case 2:
-        calibrationDetection(false);
-        break;
-    case 3:
-        calibrationPlace(false);
-        break;
-    }
-}
-
 bool GraspPlace::pick(geometry_msgs::PoseStamped pose)
 {
     tf2::Quaternion orientation;
@@ -635,7 +640,7 @@ bool GraspPlace::place()
 {
     bool flag;
     // 每個機器人在桌子和貨架都有兩個擺放的位置, 這個變量是用來改變擺放位置的
-    static int robotPlacePoseExchang[2][2]={{0, 2}, {0, 2}};
+    // static int robotPlacePoseExchang[2][2]={{0, 2}, {0, 2}};
     int pre_grasp_approach[3]={0}; 
     int post_grasp_retreat[3]={0};
     // 放置
@@ -649,32 +654,82 @@ bool GraspPlace::place()
         pre_grasp_approach[0] = -1;
         post_grasp_retreat[0] = 1;
     }
+    /******************* 生成坐标 *******************/
     // 0 从货架得到桌子
     // 1 从桌子到货架
+    geometry_msgs::PoseStamped pose;
     if(pickData.pickMode == 0)
     {
-        placePoseTable.pose.position.x -= (placePoseTableCnt * poseDistance);
+        pose = placePoseTable;
+        pose.pose.position.x -= (placePoseTableCnt * poseDistance);
         placePoseTableCnt++;
         placePoseTableCnt %= poseCount;
+        // * 0 货架
+        // * 1 左机器人
+        // * 2 右机器人
         if(pickData.pickRobot == 0)
-            changeOrientation(placePoseTable, 1);
+        {
+            changeOrientation(pose, 1);
+            preprocessingPlacePose(pose, 1);
+        }
         else
-            changeOrientation(placePoseTable, 2);
+        {
+            changeOrientation(pose, 2);
+            preprocessingPlacePose(pose, 2);
+        }
+        ROS_INFO_STREAM("changeOrientation" << pose);
     }
     else
     {
-        
+        if(placePosesShelf1Cnt != poseCount)
+        {
+            pose = placePosesShelf1;
+            pose.pose.position.y += (placePosesShelf1Cnt * poseDistance);
+            placePosesShelf1Cnt ++;
+        }
+        else
+        {
+            pose = placePosesShelf2;
+            pose.pose.position.y += (placePosesShelf2Cnt * poseDistance);
+            placePosesShelf2Cnt++;
+            if(placePosesShelf2Cnt == poseCount)
+            {
+                placePosesShelf1Cnt = 0;
+                placePosesShelf2Cnt = 0;
+            }
+        }
+        changeOrientation(pose, 0);
+        preprocessingPlacePose(pose, 0);
     }
-    
+    flag = PickPlace(pickData.pickRobot, pose, false, pre_grasp_approach, post_grasp_retreat);
 
-    flag = PickPlace(pickData.pickRobot, placePoses[pickData.pickRobot][robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode]], false, \
-                pre_grasp_approach, post_grasp_retreat);
+    // flag = PickPlace(pickData.pickRobot, placePoses[pickData.pickRobot][robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode]], false, \
+    //             pre_grasp_approach, post_grasp_retreat);
 
-    ROS_INFO_STREAM("place: " << placePoses[pickData.pickRobot][robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode]]);
-    ROS_INFO_STREAM("i: " << pickData.pickRobot << " j: " << robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode]);
-    robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode] =  (++robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode])%2 \
-                                                                    + pickData.pickMode * 2;
+    // ROS_INFO_STREAM("place: " << placePoses[pickData.pickRobot][robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode]]);
+    // ROS_INFO_STREAM("i: " << pickData.pickRobot << " j: " << robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode]);
+    // robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode] =  (++robotPlacePoseExchang[pickData.pickRobot][pickData.pickMode])%2 \
+    //                                                                 + pickData.pickMode * 2;
     return flag;
+}
+
+void GraspPlace::calibrationCallBack(const std_msgs::Int8::ConstPtr& msg)
+{
+    switch (msg->data)
+    {
+    case 0:
+        calibrationDetection(true);
+        break;
+    case 1:
+        calibrationPlace(true);
+        break;
+    case 2:
+        calibrationDetection(false);
+        break;
+    case 3:
+        calibrationPlace(false);
+        break;
+    }
 }
 
 bool GraspPlace::writePoseOnceFile(const std::string& name, const geometry_msgs::PoseStamped& pose)
@@ -826,6 +881,16 @@ void GraspPlace::preprocessingPlacePose()
             }
         }
     }
+}
+
+void GraspPlace::preprocessingPlacePose(geometry_msgs::PoseStamped& pose, int type)
+{
+    if(type == 0)
+        pose.pose.position.x += prepare_some_distance;
+    else if(type == 1)
+        pose.pose.position.y -= prepare_some_distance;
+    else if(type == 2)
+        pose.pose.position.y += prepare_some_distance;
 }
 
 

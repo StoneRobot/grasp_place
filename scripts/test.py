@@ -17,7 +17,7 @@ def callback(req):
     pose_object_info = ObjectInfo()
     msg = ObjectArray()
     pose_stamped.header.frame_id = "pick_gripper_link_0"
-    pose_stamped.pose.position.x = 20
+    pose_stamped.pose.position.x = 0.2
     pose_stamped.pose.position.y = 0
     pose_stamped.pose.position.z = 0
     pose_stamped.pose.orientation.w = 1
@@ -38,7 +38,7 @@ def callback_right(req):
     pose_object_info = ObjectInfo()
     msg = ObjectArray()
     pose_stamped.header.frame_id = "pick_gripper_link_1"
-    pose_stamped.pose.position.x = 20
+    pose_stamped.pose.position.x = 0.2
     pose_stamped.pose.position.y = 0
     pose_stamped.pose.position.z = 0
     pose_stamped.pose.orientation.w = 1

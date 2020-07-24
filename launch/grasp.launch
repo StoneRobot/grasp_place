@@ -3,7 +3,7 @@
     <arg name="isOnlyShow" default="false" />
 
     <!-- launch-prefix="gnome-terminal -e" -->
-    <node pkg="grasp_place" type="grasp" name="grasp_place" output="screen" >
+    <node pkg="grasp_place" type="grasp" name="grasp_place" output="screen" launch-prefix="gnome-terminal -e" >
         <rosparam command="load" file="$(find grasp_place)/config/pickObjectNames.yaml" />
         <param name="detectionObjectNum" type="int" value="4" />
         <param name="isGetObject" type="bool" value="false" />
@@ -14,6 +14,7 @@
         <param name="position_z_add" type="double" value="0.0"  />
         <param name="isOnlyShow" type="bool" value="$(arg isOnlyShow)" />
         <param name="speed" type="double" value="0.1" />
+        <param name="poseDistance" type="double" value="0.08" />
     </node>
     <include file="$(find grasp_place)/launch/add_shelf.launch" />
 </launch>

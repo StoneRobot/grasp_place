@@ -177,7 +177,7 @@ private:
     geometry_msgs::PoseStamped placePoseTable;
     int placePoseTableCnt = 0;
     int poseCount = 3;
-    float poseDistance = 0.05;
+    float poseDistance = 0.1;
     /*****************************************/
 
     std::string pkgPath;
